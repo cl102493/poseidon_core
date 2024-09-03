@@ -24,6 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
+#include "fsst.h"
 
 #include "linenoise.hpp"
 #include "fmt/chrono.h"
@@ -48,6 +49,8 @@ using namespace boost::program_options;
 graph_pool_ptr pool;
 graph_db_ptr graph;
 std::unique_ptr<query_proc> qproc_ptr;
+
+
 
 /**
  * Import data from the given list of CSV files. The list contains
@@ -435,6 +438,7 @@ int main(int argc, char* argv[]) {
   spdlog::set_default_logger(console);
   spdlog::info("Starting poseidon cli, Version {}", POSEIDON_VERSION);
 
+
   try {
     options_description desc{"Options"};
     desc.add_options()
@@ -471,6 +475,17 @@ int main(int argc, char* argv[]) {
     }
 
     notify(vm);
+
+      //    for (const auto& pair : vm) {
+//      std::cout << pair.first << ": ";
+//      if (pair.second.value().type() == typeid(std::string)) {
+//          std::cout << pair.second.as<std::string>() << std::endl;
+//        } else if (pair.second.value().type() == typeid(bool)) {
+//          std::cout << std::boolalpha << pair.second.as<bool>() << std::endl;
+//        } else {
+//          std::cout << "Unknown type" << std::endl;
+//        }
+//    }
 
     if (vm.count("import_path"))
       import_path = vm["import_path"].as<std::string>();
@@ -534,6 +549,13 @@ int main(int argc, char* argv[]) {
     spdlog::info("create poolset {}", pool_path);
     pool = graph_pool::create(pool_path);
     graph = pool->create_graph(db_name, bp_size);
+    spdlog::info("开始压缩");
+    std::vector<std::string> samples = {"apple", "banana", "cherry"};
+    std::vector<size_t> lengths;
+for (const auto& str : samples) {
+    lengths.push_back(str.size());
+}
+    fsst_encoder_t* encoder = fsst_create(samples.size(), lengths.data(), (const uint8_t**)samples.data(), 0);
   } else {
     spdlog::info("open poolset {}", pool_path);
     pool = graph_pool::open(pool_path, true);

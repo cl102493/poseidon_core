@@ -19,7 +19,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(LLVM_DIR "/opt/homebrew/opt/llvm@12/lib/cmake/llvm")
-  set(ANTLR_EXECUTABLE "/opt/homebrew/Cellar/antlr/4.13.1/antlr-4.13.1-complete.jar")
+  set(ANTLR_EXECUTABLE  "/usr/local/Homebrew/antlr-4.13.1-complete.jar")
 else()
   set(ANTLR_EXECUTABLE "${CMAKE_SOURCE_DIR}/jars/antlr4-4.13.1-complete.jar")
 endif()
@@ -151,6 +151,7 @@ FetchContent_MakeAvailable(CSV)
 
 # spdlog =================================================================== #
  FetchContent_Declare(
+
   spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
    GIT_TAG        v1.12.0
@@ -207,6 +208,18 @@ endif()
 
 #---------------------------------------------------------------------------
 
+FetchContent_Declare(
+        fsst
+        GIT_REPOSITORY https://github.com/cwida/fsst.git
+)
+
+# message(STATUS "Before FetchContent_MakeAvailable")
+FetchContent_MakeAvailable(fsst)
+#message(STATUS "After FetchContent_MakeAvailable")
+set(fsst_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/fsst-src")
+
+
+
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
@@ -224,7 +237,7 @@ endif()
 ######################
 #
 SET(BOOST_MIN_VERSION "1.81.0")
-
+set(Boost_INCLUDE_DIR "/usr/local/opt/boost/include")
 find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS
     program_options
     filesystem
@@ -250,6 +263,12 @@ include_directories("${spdlog_SOURCE_DIR}/include")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 include_directories("${linenoise_SOURCE_DIR}")
 include_directories("${fmt_SOURCE_DIR}/include")
+message(STATUS "FSST source dir: ${fsst_SOURCE_DIR}")
+include_directories("${fsst_SOURCE_DIR}")
+
+
+
+
 
 ###########################
 # Python Interface
@@ -389,6 +408,20 @@ else()
   set(LLVM_LIB "")
 endif()
 
+find_package(Threads REQUIRED)
+
+# 编译 FSST 库，使用 C++11 标准
+add_library(fsst_lib STATIC 
+    ${fsst_SOURCE_DIR}/libfsst.cpp
+    ${fsst_SOURCE_DIR}/fsst_avx512.cpp
+)
+
+
+set_target_properties(fsst_lib PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+
+# 其他项目仍使用 C++20
+
+
 target_link_libraries(poseidon_core
   ${LLVM_LIB}
   antlr4_cpp_runtime
@@ -398,6 +431,7 @@ target_link_libraries(poseidon_core
   Boost::thread
   spdlog::spdlog_header_only
   fmt::fmt
+  fsst_lib
 )
 
 
