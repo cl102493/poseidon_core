@@ -33,6 +33,10 @@ void code_table::rebuild() {
 }
 
 void code_table::print() const {
+    for (const auto& [key, value] : map_) {
+        std::string str = pool_->extract(value);
+        std::cout << str  << ":" << value << '\n';
+    }
 }
 
 dcode_t code_table::find(const std::string& s) {
