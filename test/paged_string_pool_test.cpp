@@ -92,7 +92,9 @@ TEST_CASE("Adding some strings and restore the string pool", "[paged_string_pool
             auto code = spool.add(os.str());
             codes[i] = code;
         }
+
         bpool.flush_all();
+        std::cout << "fininshed" << std::endl;
     }
 
      {
@@ -195,6 +197,7 @@ TEST_CASE("Testing the scan of a string pool", "[paged_string_pool]") {
             num++;
         });
         REQUIRE(num == 1000);
+        spool.print();
     }
 
     delete_dir("spool_test4");
