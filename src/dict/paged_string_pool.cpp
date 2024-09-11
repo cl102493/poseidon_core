@@ -23,6 +23,7 @@
 
 paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) : 
     bpool_(bp), file_id_(fid), file_mask_(fid << 60) {
+    spdlog::debug("paged_string_pool created");
     npages_ = bpool_.get_file(file_id_)->num_pages();
     if (npages_ == 0) {
         // we have a new file
@@ -75,11 +76,15 @@ bool paged_string_pool::equal(dcode_t pos, const std::string& s) const {
 }
 
 dcode_t paged_string_pool::add(const std::string& str) {
+    // std::cout << "paged_string_pool::add()" << str <<  "\n";
     auto pg = bpool_.last_valid_page(file_id_);
     uint32_t last_pos = 0; // the total position over all pages = dict code of str
     
     memcpy(&last_pos, &(pg.first->payload[0]), sizeof(uint32_t));
-    if (last_pos == 0) last_pos += sizeof(uint32_t);
+    if (last_pos == 0) {
+        //std::cout << "last_pos in paged_string_pool::add():" << last_pos << "\n";
+        last_pos += sizeof(uint32_t);  // sizeof(uint32_t) = 4
+    }
 
     auto page_pos = last_pos - (npages_ - 1) * PAGE_SIZE; // the position on the page
     if (page_pos + str.length() + 1 >= PAGE_SIZE) {
@@ -103,5 +108,30 @@ dcode_t paged_string_pool::add(const std::string& str) {
 }
 
 void paged_string_pool::print() const {
-    // std::cout << std::string(pool_, last_) << std::endl;
+    //std::cout << std::string(pool_, last_) << std::endl;
+    spdlog::debug("enter_pool_print");
+
+    if (npages_ == 0) {
+        spdlog::info("pages = 0");
+    } else {
+       bpool_.scan_file(file_id_, [&](auto pg) {
+           uint32_t npage = 0u; // number of page processed
+           auto data = &(pg->payload[0]);
+           std::cout << static_cast<int>(data[0])  << std::endl;
+
+           auto lastp = sizeof(uint32_t);
+           auto spos = npage * PAGE_SIZE + sizeof(uint32_t);
+           auto ppos = spos;
+
+           for (auto p = sizeof(uint32_t); p < PAGE_SIZE; p++, spos++) {
+               if (data[p] == '\0' && data[lastp] != '\0') {
+                   //spdlog::info("pool_print");
+                   std::cout << (const char *)&data[lastp] << "," << ppos << "\n";
+                   lastp = p + 1;
+                   ppos = spos + 1;
+               }
+           }
+           npage++;
+       });
+    }
 }
