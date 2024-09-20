@@ -68,7 +68,6 @@ query-op(args, query-expr)
 ```
 
 A query is evaluated from the inside out: *query-expr* is first evaluated and produces the input for *query-op*. Each operator in a query expression adds its result (node, relationship, value(s)) to the result of its input expression. For example, an expression such as
-
 ```
 ForeachRelationship(FROM, 'isLocatedIn', 
    NodeScan('Person'))
