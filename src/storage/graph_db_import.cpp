@@ -116,7 +116,7 @@ node::id_t graph_db::import_typed_node(dcode_t label,
                               const std::vector<dcode_t> &keys,
                               const std::vector<p_item::p_typecode>& typelist, 
                               const std::vector<std::any>& values) {
-  auto node_id = nodes_->append(node(label), 0);
+  auto node_id = nodes_->append(node(label), 0); // node_list中添加
                             
   // we need the node object not only the id
   auto &n = nodes_->get(node_id);

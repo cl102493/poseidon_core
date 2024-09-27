@@ -277,7 +277,7 @@ public:
    * is reserved (used for undo logging).
    */
   node::id_t append(node &&n, xid_t owner = 0, std::function<void(offset_t)> callback = nullptr) {
-    auto p = nodes_.append(std::move(n), callback);
+    auto p = nodes_.append(std::move(n), callback);  // buffered_vec
   p.second->id_ = p.first;
   if (owner != 0) {
     /// spdlog::info("lock node #{} by {}", p.first, owner);

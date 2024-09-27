@@ -41,6 +41,12 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+inline uint64_t fsst_unaligned_load(u8 const* V) {
+	uint64_t Ret;
+	memcpy(&Ret, V, sizeof(uint64_t)); // compiler will generate efficient code (unaligned load, where possible)
+	return Ret;
+}
+
 #define FSST_ENDIAN_MARKER ((u64) 1)
 #define FSST_VERSION_20190218 20190218
 #define FSST_VERSION ((u64) FSST_VERSION_20190218)
@@ -56,12 +62,6 @@ typedef uint64_t u64;
 #define FSST_CODE_MAX       (1UL<<FSST_CODE_BITS) /* all bits set: indicating a symbol that has not been assigned a code yet */
 #define FSST_CODE_MASK      (FSST_CODE_MAX-1UL)   /* all bits set: indicating a symbol that has not been assigned a code yet */
 
-inline uint64_t fsst_unaligned_load(u8 const* V) {
-    uint64_t Ret;
-    memcpy(&Ret, V, sizeof(uint64_t)); // compiler will generate efficient code (unaligned load, where possible)
-    return Ret;
-}
-
 struct Symbol {
    static const unsigned maxLength = 8;
 
@@ -75,7 +75,7 @@ struct Symbol {
 
    explicit Symbol(u8 c, u16 code) : icl((1<<28)|(code<<16)|56) { val.num = c; } // single-char symbol
    explicit Symbol(const char* begin, const char* end) : Symbol(begin, (u32) (end-begin)) {}
-   explicit Symbol(const u8* begin, const u8* end) : Symbol((const char*)begin, (u32) (end-begin)) {}
+   explicit Symbol(u8* begin, u8* end) : Symbol((const char*)begin, (u32) (end-begin)) {}
    explicit Symbol(const char* input, u32 len) {
       val.num = 0;
       if (len>=8) {
@@ -116,7 +116,7 @@ struct QSymbol{
 // two phases of compression, before and after optimize():
 //
 // (1) to encode values we probe (and maintain) three datastructures:
-// - u16 byteCodes[256] array at the position of the next byte  (s.length==1)
+// - u16 byteCodes[65536] array at the position of the next byte  (s.length==1)
 // - u16 shortCodes[65536] array at the position of the next twobyte pattern (s.length==2)
 // - Symbol hashtable[1024] (keyed by the next three bytes, ie for s.length>2), 
 // this search will yield a u16 code, it points into Symbol symbols[]. You always find a hit, because the first 256 codes are 
@@ -244,7 +244,7 @@ struct SymbolTable {
       }
       return byteCodes[s.first()] & FSST_CODE_MASK;
    }
-   u16 findLongestSymbol(const u8* cur, const u8* end) const {
+   u16 findLongestSymbol(u8* cur, u8* end) const {
       return findLongestSymbol(Symbol(cur,end)); // represent the string as a temporary symbol
    }
 
@@ -379,7 +379,7 @@ struct Counters {
    }
    u32 count1GetNext(u32 &pos1) { // note: we will advance pos1 to the next nonzero counter in register range
       // read 16-bits single symbol counter, split into two 8-bits numbers (count1Low, count1High), while skipping over zeros
-      u64 high = fsst_unaligned_load(&count1High[pos1]); // note: this reads 8 subsequent counters [pos1..pos1+7]
+	   u64 high = fsst_unaligned_load(&count1High[pos1]);
 
       u32 zero = high?(__builtin_ctzl(high)>>3):7UL; // number of zero bytes
       high = (high >> (zero << 3)) & 255; // advance to nonzero counter
@@ -392,7 +392,7 @@ struct Counters {
    }
    u32 count2GetNext(u32 pos1, u32 &pos2) { // note: we will advance pos2 to the next nonzero counter in register range
       // read 12-bits pairwise symbol counter, split into low 8-bits and high 4-bits number while skipping over zeros
-      u64 high = fsst_unaligned_load(&count2High[pos1][pos2>>1]); // note: this reads 16 subsequent counters [pos2..pos2+15]
+	  u64 high = fsst_unaligned_load(&count2High[pos1][pos2>>1]);
       high >>= ((pos2&1) << 2); // odd pos2: ignore the lowest 4 bits & we see only 15 counters
 
       u32 zero = high?(__builtin_ctzl(high)>>2):(15UL-(pos2&1UL)); // number of zero 4-bits counters
@@ -431,19 +431,6 @@ struct Encoder {
 struct SIMDjob {
    u64 out:19,pos:9,end:18,cur:18; // cur/end is input offsets (2^18=256KB), out is output offset (2^19=512KB)  
 };
-
-extern bool 
-fsst_hasAVX512(); // runtime check for avx512 capability
-
-extern size_t 
-fsst_compressAVX512(
-   SymbolTable &symbolTable, 
-   u8* codeBase,    // IN: base address for codes, i.e. compression output (points to simdbuf+256KB)
-   u8* symbolBase,  // IN: base address for string bytes, i.e. compression input (points to simdbuf)
-   SIMDjob* input,  // IN: input array (size n) with job information: what to encode, where to store it.
-   SIMDjob* output, // OUT: output array (size n) with job information: how much got encoded, end output pointer.
-   size_t n,         // IN: size of arrays input and output (should be max 512)
-   size_t unroll);   // IN: degree of SIMD unrolling
 
 // C++ fsst-compress function with some more control of how the compression happens (algorithm flavor, simd unroll degree)
 size_t compressImpl(Encoder *encoder, size_t n, size_t lenIn[], u8 *strIn[], size_t size, u8 * output, size_t *lenOut, u8 *strOut[], bool noSuffixOpt, bool avoidBranch, int simd);

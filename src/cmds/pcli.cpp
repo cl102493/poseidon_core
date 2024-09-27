@@ -24,7 +24,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
-#include "fsst.h"
+#include "compression.hpp"
+
 
 #include "linenoise.hpp"
 #include "fmt/chrono.h"
@@ -560,14 +561,43 @@ int main(int argc, char* argv[]) {
     spdlog::info("open poolset {}", pool_path);
     pool = graph_pool::open(pool_path, true);
     graph = pool->open_graph(db_name, bp_size);
-    spdlog::info("--------- print_pool ---------");
-    graph->get_dictionary()->print_pool();
-    spdlog::info("--------- print_table ---------");
-    graph->get_dictionary()->print_table();
+//    spdlog::info("--------- print_pool ---------");
+//    graph->get_dictionary()->print_pool();
+//    spdlog::info("--------- print_table ---------");
+//    graph->get_dictionary()->print_table();
   }
 
   if (!import_files.empty()) {
     spdlog::info("--------- Importing files ...");
+    //  Compression compression;
+    // std::vector<std::string> samples = {
+    //      "Hello, FSST!",
+    //      "Compression is fun",
+    //      "This is a test string",
+    //      "FSST is fast and efficient"
+    // };
+    //  if (!compression.initializeEncoder(samples)) {
+    //     std::cerr << "Failed to initialize encoder" << std::endl;
+    //     return 1;
+    // }
+
+    //     compression.printSymbolTable();
+
+    // // 压缩一个新的字符串
+    // std::string new_string = "Customer#000135239";
+    // new_string += '\0';
+    // std::vector<unsigned char> compressed = compression.compressString(new_string);
+
+    // if (!compressed.empty()) {
+    //     std::cout << "Successfully compressed new string." << std::endl;
+    //     std::cout << "Original size: " << new_string.length() << " bytes" << std::endl;
+    //     std::cout << "Compressed size: " << compressed.size() << " bytes" << std::endl;
+
+    //     // 解压缩并验证
+    //     std::string decompressed = compression.decompressString(compressed);
+    //     std::cout << "Decompressed string: " << decompressed << std::endl;
+    //     std::cout << "Decompression successful: " << (decompressed == new_string ? "Yes" : "No") << std::endl;
+    // }
     import_csv_files(graph, import_path, import_files, delim_character, format, strict);
     graph->print_stats();
   }

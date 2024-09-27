@@ -32,7 +32,7 @@ paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) :
     }
 }
 
-bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) {
+bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) { // 2
     uint32_t npage = 0u; // number of page processed
 
     bpool_.scan_file(file_id_, [&](auto pg) {

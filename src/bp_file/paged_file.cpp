@@ -96,8 +96,8 @@ paged_file::page_id paged_file::allocate_page() {
     }
     else {
         // append a page to the file
-        file_.seekp(0, file_.end);
-        file_.write((const char *) buf, PAGE_SIZE);
+        file_.seekp(0, file_.end);              // I/O 操作
+        file_.write((const char *) buf, PAGE_SIZE);  // I/O 写操作
         npages_++;
         pid = ((unsigned long)file_.tellp() - sizeof(file_header)) / PAGE_SIZE;
     }
@@ -169,7 +169,7 @@ paged_file::page_id paged_file::find_first_slot() {
     return UNKNOWN;
 }
 
-void paged_file::scan_pages(page& pg, std::function<void(page&, paged_file::page_id)> cb) {
+void paged_file::scan_pages(page& pg, std::function<void(page&, paged_file::page_id)> cb) {  //3
     paged_file::page_id pid = 1;
     file_.seekg(sizeof(file_header));
     while (!file_.eof()) {
