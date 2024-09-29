@@ -1,15 +1,13 @@
 #include <vector>
 #include <iostream>
+#ifndef COMPRESSION_HPP
+#define COMPRESSION_HPP
 #include <iomanip>
 #include <cctype>
 
 #include "fsst.h"
 
 class Compression {
-private:
-    duckdb_fsst_encoder_t* encoder;
-    duckdb_fsst_decoder_t decoder;
-
 public:
     Compression() : encoder(nullptr) {}
 
@@ -43,7 +41,7 @@ public:
         return true;
     }
 
-    std::vector<unsigned char> compressString(const std::string& str) {
+    std::vector<unsigned char> compressString(const std::string& str) const{
         if (!encoder) {
             std::cerr << "Encoder not initialized. Call initializeEncoder() first." << std::endl;
             return {};
@@ -76,7 +74,7 @@ public:
         return compressed;
     }
 
-    std::string decompressString(const std::vector<unsigned char>& compressed) {
+    std::string decompressString(const std::vector<unsigned char>& compressed) const{
         std::string decompressed;
         decompressed.resize(compressed.size() * 2); // 保守估计
 
@@ -92,7 +90,7 @@ public:
         return decompressed;
     }
 
-    void printSymbolTable() {
+    void printSymbolTable() const {
     if (!encoder) {
         std::cerr << "Encoder not initialized. Call initializeEncoder() first." << std::endl;
         return;
@@ -122,5 +120,10 @@ public:
         }
     }
 }
+
+private:
+    duckdb_fsst_encoder_t* encoder;
+    mutable duckdb_fsst_decoder_t decoder;
 };
 
+#endif // COMPRESSION_HPP

@@ -22,6 +22,7 @@
 #include <string>
 #include "defs.hpp"
 #include "bufferpool.hpp"
+#include "compression.hpp"
 
 class paged_string_pool {
 public:
@@ -35,11 +36,26 @@ public:
     
     bool scan(std::function<void(const char *s, dcode_t c)> cb);
     void print() const;
+
+    // 新增方法
+    bool is_compression_ready() const { return compression_ready_; }
     
 private:
     bufferpool& bpool_;
     uint64_t file_id_, file_mask_;
     uint64_t npages_;
+    Compression compression;
+    bool compression_ready_ = false;
+
+    void initialize_compression(const std::vector<std::string>& samples);
+    dcode_t add_uncompressed(const std::string& str);
+    dcode_t add_compressed(const std::string& str);
+    std::vector<std::string> sample_strings() const;
+
+    size_t string_count_ = 0;
+    static constexpr size_t COMPRESSION_THRESHOLD = 100;
+    static constexpr size_t SAMPLE_SIZE = 1000;
+
 };
 
 #endif /* paged_string_pool_hpp */
