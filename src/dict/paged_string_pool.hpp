@@ -35,6 +35,7 @@ public:
     dcode_t add(const std::string& str);
     
     bool scan(std::function<void(const char *s, dcode_t c)> cb);
+    //bool scan_memory_pages(std::function<void(const char *s, dcode_t c)> cb);
     void print() const;
 
     // 新增方法

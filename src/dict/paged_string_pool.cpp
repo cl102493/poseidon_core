@@ -33,6 +33,7 @@ paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) :
 }
 
 void paged_string_pool::initialize_compression(const std::vector<std::string>& samples) {
+    std::cout << "初始化压缩" << std::endl;
     if (compression_ready_) return;
     
     if (compression.initializeEncoder(samples)) {
@@ -77,6 +78,7 @@ dcode_t paged_string_pool::add_uncompressed(const std::string& str) {
 
     string_count_++;
     if (!compression_ready_ && string_count_ >= COMPRESSION_THRESHOLD) {
+        bpool_.flush_page(pg.second | file_mask_, false);
         std::vector<std::string> samples;
         scan([&samples](const char* s, dcode_t) {
             if (samples.size() < SAMPLE_SIZE) {
@@ -84,8 +86,8 @@ dcode_t paged_string_pool::add_uncompressed(const std::string& str) {
             }
         });
         initialize_compression(samples);
+        // return
     }
-
     return pos;
 
 }
@@ -147,6 +149,39 @@ bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) {
     }
     return true;
 }
+
+// bool paged_string_pool::scan_memory_pages(std::function<void(const char *s, dcode_t c)> cb) {
+//     uint32_t npage = 0u; // number of pages processed
+
+//     for (paged_file::page_id pid = 1; pid <= npages_; ++pid) {
+//         auto full_pid = pid | file_mask_;
+//         auto pg = bpool_.get_page_if_loaded(full_pid);
+        
+//         if (pg) {  // 页面在内存中
+//             auto data = &(pg->payload[0]);
+//             auto lastp = sizeof(uint32_t);
+//             auto spos = (pid - 1) * PAGE_SIZE + sizeof(uint32_t);
+//             auto ppos = spos;
+
+//             for (auto p = sizeof(uint32_t); p < PAGE_SIZE; p++, spos++) {
+//                 if (data[p] == '\0' && data[lastp] != '\0') {
+//                     cb((const char *)&data[lastp], ppos);
+//                     lastp = p + 1;
+//                     ppos = spos + 1;
+//                 }
+//             }
+//             npage++;
+//         }
+//     }
+
+//     if (npage == 0) {
+//         spdlog::info("No pages found in memory.");
+//         return false;
+//     }
+    
+//     spdlog::info("Scanned {} pages in memory.", npage);
+//     return true;
+// }
 
 const char* paged_string_pool::extract(dcode_t pos) const {
     paged_file::page_id pid = pos / PAGE_SIZE + 1;

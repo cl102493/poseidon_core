@@ -6,6 +6,7 @@
 #include <cctype>
 
 #include "fsst.h"
+#include "libfsst.hpp"
 
 class Compression {
 public:
@@ -23,11 +24,12 @@ public:
         }
 
         std::vector<size_t> lengths;
-        std::vector<unsigned char*> string_pointers;
+        std::vector<u8*> string_pointers;
 
         for (const auto& str : samples) {
             lengths.push_back(str.length());
-            string_pointers.push_back((unsigned char*)str.c_str());
+            //string_pointers.push_back((unsigned char*)str.c_str());
+            string_pointers.push_back(reinterpret_cast<u8*>(const_cast<char*>(str.c_str())));
         }
 
         encoder = duckdb_fsst_create(samples.size(), lengths.data(), string_pointers.data(), 0);
