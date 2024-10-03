@@ -143,6 +143,9 @@ duckdb_fsst_decoder_t
 duckdb_fsst_decoder(
    duckdb_fsst_encoder_t *encoder
 );
+ 
+// rebuild encoder 
+duckdb_fsst_encoder_t* rebuild_encoder(duckdb_fsst_decoder_t);
 
 /* Compress a batch of strings (on AVX512 machines best performance is obtained by compressing more than 32KB of string volume). */
 /* The output buffer must be large; at least "conservative space" (7+2*inputlength) for the first string for something to happen. */

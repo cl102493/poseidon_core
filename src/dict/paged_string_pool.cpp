@@ -31,10 +31,10 @@ paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) :
         npages_ = 1;
     }
 
-    // std::string filename = "/Users/lei/Desktop/poseidon/poseidon_core/demo/testdb/symbol_table.bin";
-    // if (std::filesystem::exists(filename)) {
-    //     load_symbol_table(filename);
-    // }
+    std::string filename = "/Users/lei/Desktop/poseidon/poseidon_core/demo/testdb/symbol_table.bin";
+    if (std::filesystem::exists(filename)) {
+        load_symbol_table(filename);
+    }
 
 }
 
@@ -296,34 +296,32 @@ bool paged_string_pool::save_symbol_table(const std::string& filename) {
     return true;
 }
 
-// bool paged_string_pool::load_symbol_table(const std::string& filename) {
-//     std::cout << "filename:" << filename << std::endl;
-//     std::ifstream file(filename, std::ios::binary | std::ios::ate);
-//     if (!file) {
-//         spdlog::error("Failed to open file for reading: {}", filename);
-//         return false;
-//     }
+bool paged_string_pool::load_symbol_table(const std::string& filename) {
+    std::cout << "filename:" << filename << std::endl;
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file) {
+        spdlog::error("Failed to open file for reading: {}", filename);
+        return false;
+    }
 
-//     std::streamsize size = file.tellg();
-//     file.seekg(0, std::ios::beg);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
     
-    
+    std::vector<uint8_t> buffer(size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        spdlog::error("Failed to read file: {}", filename);
+        return false;
+    }
 
-//     std::vector<uint8_t> buffer(size);
-//     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-//         spdlog::error("Failed to read file: {}", filename);
-//         return false;
-//     }
+    if (!compression.importSymbolTable(buffer)) {
+        spdlog::error("Failed to import symbol table from file: {}", filename);
+        return false;
+    }
 
-//     if (!compression.importSymbolTable(buffer)) {
-//         spdlog::error("Failed to import symbol table from file: {}", filename);
-//         return false;
-//     }
-
-//     compression_ready_ = true;
-//     spdlog::info("Symbol table loaded from file: {}", filename);
-//     return true;
-// }
+    compression_ready_ = true;
+    spdlog::info("Symbol table loaded from file: {}", filename);
+    return true;
+}
 
 void paged_string_pool::print() const {
     //std::cout << std::string(pool_, last_) << std::endl;

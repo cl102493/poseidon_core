@@ -473,6 +473,48 @@ extern "C" u32 duckdb_fsst_import(duckdb_fsst_decoder_t *decoder, u8 *buf) {
 	return pos;
 }
 
+// rebuild encoder
+extern "C" duckdb_fsst_encoder_t* rebuild_encoder(duckdb_fsst_decoder_t decoder) {
+	Encoder *encoder = new Encoder();
+	std::cout << "enter_rebuild_encoder " << std::endl;
+	encoder->symbolTable = std::make_shared<SymbolTable>();
+
+	 // 复制基本属性
+    encoder->symbolTable->zeroTerminated = decoder.zeroTerminated;
+    encoder->symbolTable->nSymbols = (decoder.version >> 8) & 0xFF;
+    encoder->symbolTable->suffixLim = (decoder.version >> 24) & 0xFF;
+    encoder->symbolTable->terminator = (decoder.version >> 16) & 0xFF;
+
+	 // 重建 symbols 数组
+    for (u32 i = 0; i < 256; i++) {
+        encoder->symbolTable->symbols[i].set_code_len(i, decoder.len[i]);
+        encoder->symbolTable->symbols[i].val.num = decoder.symbol[i];
+    }
+
+	memset(encoder->symbolTable->lenHisto, 0, sizeof(encoder->symbolTable->lenHisto));
+	for (u32 i = 0; i < 256; i++) {
+    if (decoder.len[i] > 0 && decoder.len[i] <= 8) {
+        encoder->symbolTable->lenHisto[decoder.len[i] - 1]++;
+    	}
+	}
+
+	    // 更新 byteCodes, shortCodes, 和 hashTab
+    for (u32 i = encoder->symbolTable->zeroTerminated; i < encoder->symbolTable->nSymbols; i++) {
+        Symbol& s = encoder->symbolTable->symbols[i];
+        u32 len = s.length();
+        if (len == 1) {
+            encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
+        } else if (len == 2) {
+            encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
+        } else if (len > 2) {
+            encoder->symbolTable->hashInsert(s);
+        }
+    }
+
+	memset(encoder->simdbuf, 0, FSST_BUFSZ);
+	return (duckdb_fsst_encoder_t*) encoder;
+}
+
 // runtime check for simd
 inline size_t _compressImpl(Encoder *e, size_t nlines, size_t lenIn[], u8 *strIn[], size_t size, u8 *output, size_t *lenOut, u8 *strOut[], bool noSuffixOpt, bool avoidBranch, int) {
 	return compressBulk(*e->symbolTable, nlines, lenIn, strIn, size, output, lenOut, strOut, noSuffixOpt, avoidBranch);
