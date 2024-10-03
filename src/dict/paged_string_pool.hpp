@@ -40,6 +40,8 @@ public:
 
     // 新增方法
     bool is_compression_ready() const { return compression_ready_; }
+    bool save_symbol_table(const std::string& filename);
+    bool load_symbol_table(const std::string& filename);
     
 private:
     bufferpool& bpool_;

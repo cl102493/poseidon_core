@@ -413,6 +413,22 @@ extern "C" u32 duckdb_fsst_export(duckdb_fsst_encoder_t *encoder, u8 *buf) {
 	for(u32 i = e->symbolTable->zeroTerminated; i < e->symbolTable->nSymbols; i++)
 		for(u32 j = 0; j < e->symbolTable->symbols[i].length(); j++)
 			buf[pos++] = e->symbolTable->symbols[i].val.str[j]; // serialize used symbol bytes
+	
+	 // 打印 buffer 内容
+    // std::cout << "Buffer contents:" << std::endl;
+    // for (u32 i = 0; i < pos; ++i) {
+    //     std::cout << std::setw(3) << std::setfill(' ') << std::hex << static_cast<int>(buf[i]) << " ";
+    //     if ((i + 1) % 16 == 0) {
+    //         std::cout << std::endl;
+    //     }
+    // }
+    // if (pos % 16 != 0) {
+    //     std::cout << std::endl;
+    // }
+    // std::cout << std::endl; 
+
+    // 打印 buffer 大小
+   // std::cout << "Buffer size: " << pos << " bytes" << std::endl;
 
 	return pos; // length of what was serialized
 }

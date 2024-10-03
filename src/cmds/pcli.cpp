@@ -437,6 +437,7 @@ int main(int argc, char* argv[]) {
 
   auto console = spdlog::stdout_color_mt("poseidon");
   spdlog::set_default_logger(console);
+  //spdlog::set_level(spdlog::level::trace);
   spdlog::info("Starting poseidon cli, Version {}", POSEIDON_VERSION);
 
 

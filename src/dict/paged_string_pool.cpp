@@ -30,6 +30,12 @@ paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) :
         bpool_.allocate_page(file_id_);
         npages_ = 1;
     }
+
+    // std::string filename = "/Users/lei/Desktop/poseidon/poseidon_core/demo/testdb/symbol_table.bin";
+    // if (std::filesystem::exists(filename)) {
+    //     load_symbol_table(filename);
+    // }
+
 }
 
 void paged_string_pool::initialize_compression(const std::vector<std::string>& samples) {
@@ -86,6 +92,7 @@ dcode_t paged_string_pool::add_uncompressed(const std::string& str) {
             }
         });
         initialize_compression(samples);
+        save_symbol_table("/Users/lei/Desktop/poseidon/poseidon_core/demo/testdb/symbol_table.bin");
         // return
     }
     return pos;
@@ -95,7 +102,7 @@ dcode_t paged_string_pool::add_uncompressed(const std::string& str) {
 dcode_t paged_string_pool::add_compressed(const std::string& str) {
     auto compressed = compression.compressString(str);
 
-    std::cout << "compression" <<std::endl;
+    //std::cout << "compression" <<std::endl;
     
     auto pg = bpool_.last_valid_page(file_id_);
     uint32_t last_pos = 0;
@@ -255,6 +262,67 @@ bool paged_string_pool::equal(dcode_t pos, const std::string& s) const {
 //     // mark the current page as dirty
 //     bpool_.mark_dirty(pg.second | file_mask_);
 //     return pos;
+// }
+
+bool paged_string_pool::save_symbol_table(const std::string& filename) {
+    if (!compression_ready_) {
+        spdlog::error("Compression not initialized. Cannot save symbol table.");
+        return false;
+    }
+
+    std::cout << "compression.exportSymbolTable()" << std::endl;
+
+    std::vector<uint8_t> buffer = compression.exportSymbolTable();
+    if (buffer.empty()) {
+        spdlog::error("Failed to export symbol table");
+        return false;
+    }
+  
+    std::ofstream file(filename, std::ios::binary);
+    if (!file) {
+        spdlog::error("Failed to open file for writing: {}", filename);
+        return false;
+    }
+
+    file.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+    if (!file.good()) {
+        spdlog::error("Failed to write symbol table to file: {}", filename);
+        return false;
+    }
+
+    std::cout << "filename:" << filename << std::endl;
+
+    spdlog::info("Symbol table saved to file: {}", filename);
+    return true;
+}
+
+// bool paged_string_pool::load_symbol_table(const std::string& filename) {
+//     std::cout << "filename:" << filename << std::endl;
+//     std::ifstream file(filename, std::ios::binary | std::ios::ate);
+//     if (!file) {
+//         spdlog::error("Failed to open file for reading: {}", filename);
+//         return false;
+//     }
+
+//     std::streamsize size = file.tellg();
+//     file.seekg(0, std::ios::beg);
+    
+    
+
+//     std::vector<uint8_t> buffer(size);
+//     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+//         spdlog::error("Failed to read file: {}", filename);
+//         return false;
+//     }
+
+//     if (!compression.importSymbolTable(buffer)) {
+//         spdlog::error("Failed to import symbol table from file: {}", filename);
+//         return false;
+//     }
+
+//     compression_ready_ = true;
+//     spdlog::info("Symbol table loaded from file: {}", filename);
+//     return true;
 // }
 
 void paged_string_pool::print() const {
