@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include "paged_string_pool.hpp"
 #include "spdlog/spdlog.h"
+#include <vector>
 
 paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) : 
     bpool_(bp), file_id_(fid), file_mask_(fid << 60) {
@@ -94,6 +95,7 @@ dcode_t paged_string_pool::add_uncompressed(const std::string& str) {
         initialize_compression(samples);
         save_symbol_table("/Users/lei/Desktop/poseidon/poseidon_core/demo/testdb/symbol_table.bin");
         // return
+        compression.printSymbolTable();
     }
     return pos;
 
@@ -199,17 +201,34 @@ const char* paged_string_pool::extract(dcode_t pos) const {
         return (const char*)&(pg->payload[page_offset]);
     }
 
-    // 读取压缩数据
-    uint32_t next_pos;
-    memcpy(&next_pos, &(pg->payload[0]), sizeof(uint32_t));
-    size_t compressed_size = next_pos - pos;
+    const unsigned char* compressed_start = &(pg->payload[page_offset]);
+    size_t compressed_size = 0;
+    size_t remaining_in_page = PAGE_SIZE - page_offset;
 
-    std::vector<unsigned char> compressed_data(compressed_size);
-    memcpy(compressed_data.data(), &(pg->payload[page_offset]), compressed_size);
+    // 查找压缩字符串的结束位置（'\0'）
+    const unsigned char* end = static_cast<const unsigned char*>(memchr(compressed_start, '\0', remaining_in_page));
+    
+    if (end) {
+        compressed_size = end - compressed_start;
+    } else {
+        // 如果在当前页面没有找到结束符，需要查找下一个页面
+        compressed_size = remaining_in_page;
+        pid++;
+        pg = bpool_.fetch_page(pid | file_mask_);
+        end = static_cast<const unsigned char*>(memchr(pg->payload, '\0', PAGE_SIZE));
+        if (end) {
+            compressed_size += end - pg->payload;
+        } else {
+            throw std::runtime_error("Compressed string end not found");
+        }
+    }
 
     // 解压缩
+    static thread_local std::vector<unsigned char> compressed_buffer;
+    compressed_buffer.assign(compressed_start, compressed_start + compressed_size);
+    
     static thread_local std::string decompressed;
-    decompressed = compression.decompressString(compressed_data);
+    decompressed = compression.decompressString(compressed_buffer);
 
     return decompressed.c_str();
 }
