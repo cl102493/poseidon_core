@@ -24,7 +24,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
-#include "fsst.h"
 
 #include "linenoise.hpp"
 #include "fmt/chrono.h"
@@ -36,6 +35,7 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
+#include "fsst.h"
 
 enum cmd_mode {
   undefined_mode,
@@ -549,13 +549,7 @@ int main(int argc, char* argv[]) {
     spdlog::info("create poolset {}", pool_path);
     pool = graph_pool::create(pool_path);
     graph = pool->create_graph(db_name, bp_size);
-//     spdlog::info("开始压缩");
-//     std::vector<std::string> samples = {"apple", "banana", "cherry"};
-//     std::vector<size_t> lengths;
-// for (const auto& str : samples) {
-//     lengths.push_back(str.size());
-// }
-//     fsst_encoder_t* encoder = fsst_create(samples.size(), lengths.data(), (const uint8_t**)samples.data(), 0);
+
   } else {
     spdlog::info("open poolset {}", pool_path);
     pool = graph_pool::open(pool_path, true);

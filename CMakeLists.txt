@@ -208,18 +208,6 @@ endif()
 
 #---------------------------------------------------------------------------
 
-FetchContent_Declare(
-        fsst
-        GIT_REPOSITORY https://github.com/cwida/fsst.git
-)
-
-# message(STATUS "Before FetchContent_MakeAvailable")
-FetchContent_MakeAvailable(fsst)
-#message(STATUS "After FetchContent_MakeAvailable")
-set(fsst_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/fsst-src")
-
-
-
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
@@ -230,7 +218,16 @@ endif()
 
 #---------------------------------------------------------------------------
 
-
+######################
+# FSST
+######################
+#
+# 定义 DUCKDB_EXPORT_SET（如果在 fsst/CMakeLists.txt 中使用）
+set(DUCKDB_EXPORT_SET "duckdb-exports")
+# 定义安装目录（如果在 fsst/CMakeLists.txt 中使用）
+set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/fsst)
+#-----------------------------------------------------------------------------------------
 
 ######################
 # Boost C++ library
@@ -263,9 +260,7 @@ include_directories("${spdlog_SOURCE_DIR}/include")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 include_directories("${linenoise_SOURCE_DIR}")
 include_directories("${fmt_SOURCE_DIR}/include")
-message(STATUS "FSST source dir: ${fsst_SOURCE_DIR}")
-include_directories("${fsst_SOURCE_DIR}")
-
+include_directories(${PROJECT_SOURCE_DIR}/src/fsst)
 
 
 
@@ -410,16 +405,7 @@ endif()
 
 find_package(Threads REQUIRED)
 
-# 编译 FSST 库，使用 C++11 标准
-add_library(fsst_lib STATIC 
-    ${fsst_SOURCE_DIR}/libfsst.cpp
-    ${fsst_SOURCE_DIR}/fsst_avx512.cpp
-)
 
-
-set_target_properties(fsst_lib PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-
-# 其他项目仍使用 C++20
 
 
 target_link_libraries(poseidon_core
@@ -431,12 +417,13 @@ target_link_libraries(poseidon_core
   Boost::thread
   spdlog::spdlog_header_only
   fmt::fmt
-  fsst_lib
+  duckdb_fsst
 )
 
 
 target_include_directories( ${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/fsst
 )
 
 if (BUILD_PYTHON)
@@ -457,6 +444,7 @@ target_link_libraries(poseidon
   ${Python3_LIBRARIES}
   spdlog::spdlog_header_only
   fmt::fmt
+  duckdb_fsst
 )
 
 set_target_properties(poseidon PROPERTIES PREFIX "" SUFFIX ".so")

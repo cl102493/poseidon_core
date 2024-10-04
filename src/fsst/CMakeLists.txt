@@ -1,26 +1,19 @@
-#------------------- LIBRARY CONFIGURATION ------------------------------------
-
-set(fsst fsst CACHE INTERNAL "")
-set(fsst_SRC
-    fsst.cpp
-    libfsst.cpp
-    fsst_avx512.cpp
-)
-
-add_library(${fsst} ${fsst_SRC})
-
-target_include_directories(fsst PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    target_compile_options(${fsst} PRIVATE
-        -g -Wall -O0
-    )
-else()
-    target_compile_options(${fsst} PRIVATE
-        -w -O3
-    )
-    target_compile_options(${fsst} PUBLIC
-        -Wno-attributes
-    )
+if(POLICY CMP0063)
+    cmake_policy(SET CMP0063 NEW)
 endif()
+
+find_package(Threads REQUIRED)
+
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+add_library(duckdb_fsst STATIC libfsst.cpp)
+
+target_include_directories(duckdb_fsst PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+set_target_properties(duckdb_fsst PROPERTIES EXPORT_NAME duckdb_fsst)
+
+install(TARGETS duckdb_fsst
+        EXPORT "${DUCKDB_EXPORT_SET}"
+        LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
+        ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
+
+#disable_target_warnings(duckdb_fsst)

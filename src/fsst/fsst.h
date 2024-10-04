@@ -48,15 +48,23 @@
 #ifndef FSST_INCLUDED_H
 #define FSST_INCLUDED_H
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #define __restrict__ 
 #define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
 #define __ORDER_LITTLE_ENDIAN__ 2
 #include <intrin.h>
 static inline int __builtin_ctzl(unsigned long long x) {
-    unsigned long ret;
+#  ifdef _WIN64
+	unsigned long ret;
     _BitScanForward64(&ret, x);
-    return (int)ret;
+	return (int)ret;
+#  else
+	unsigned long low, high;
+	bool low_set = _BitScanForward(&low, (unsigned __int32)(x)) != 0;
+	_BitScanForward(&high, (unsigned __int32)(x >> 32));
+	high += 32;
+	return low_set ? low : high;
+#  endif
 }
 #endif
 
@@ -68,13 +76,24 @@ extern "C" {
 #define FSST_FALLTHROUGH 
 #endif
 
+#ifndef __has_cpp_attribute // For backwards compatibility
+#define __has_cpp_attribute(x) 0
+#endif
+#if __has_cpp_attribute(clang::fallthrough)
+#define DUCKDB_FSST_EXPLICIT_FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(gnu::fallthrough)
+#define DUCKDB_FSST_EXPLICIT_FALLTHROUGH [[gnu::fallthrough]]
+#else
+#define DUCKDB_FSST_EXPLICIT_FALLTHROUGH
+#endif
+
 #include <stddef.h>
 
 /* A compressed string is simply a string of 1-byte codes; except for code 255, which is followed by an uncompressed byte. */
 #define FSST_ESC 255
 
-/* Data structure needed for compressing strings - use fsst_duplicate() to create thread-local copies. Use fsst_destroy() to free. */
-typedef void* fsst_encoder_t; /* opaque type - it wraps around a rather large (~900KB) C++ object */
+/* Data structure needed for compressing strings - use duckdb_fsst_duplicate() to create thread-local copies. Use duckdb_fsst_destroy() to free. */
+typedef void* duckdb_fsst_encoder_t; /* opaque type - it wraps around a rather large (~900KB) C++ object */
 
 /* Data structure needed for decompressing strings - read-only and thus can be shared between multiple decompressing threads. */
 typedef struct {
@@ -82,57 +101,57 @@ typedef struct {
    unsigned char zeroTerminated;   /* terminator is a single-byte code that does not appear in longer symbols */
    unsigned char len[255];         /* len[x] is the byte-length of the symbol x (1 < len[x] <= 8). */
    unsigned long long symbol[255]; /* symbol[x] contains in LITTLE_ENDIAN the bytesequence that code x represents (0 <= x < 255). */ 
-} fsst_decoder_t;
+} duckdb_fsst_decoder_t;
 
 /* Calibrate a FSST symboltable from a batch of strings (it is best to provide at least 16KB of data). */
-fsst_encoder_t*  
-fsst_create(
+duckdb_fsst_encoder_t*
+duckdb_fsst_create(
    size_t n,         /* IN: number of strings in batch to sample from. */
-   const size_t lenIn[],   /* IN: byte-lengths of the inputs */
-   const unsigned char *strIn[],  /* IN: string start pointers. */
+   size_t lenIn[],   /* IN: byte-lengths of the inputs */
+   unsigned char *strIn[],  /* IN: string start pointers. */
    int zeroTerminated       /* IN: whether input strings are zero-terminated. If so, encoded strings are as well (i.e. symbol[0]=""). */
 );
 
 /* Create another encoder instance, necessary to do multi-threaded encoding using the same symbol table. */ 
-fsst_encoder_t*    
-fsst_duplicate(
-   fsst_encoder_t *encoder  /* IN: the symbol table to duplicate. */ 
+duckdb_fsst_encoder_t*
+duckdb_fsst_duplicate(
+   duckdb_fsst_encoder_t *encoder  /* IN: the symbol table to duplicate. */
 );
 
-#define FSST_MAXHEADER (8+1+8+2048+1) /* maxlen of deserialized fsst header, produced/consumed by fsst_export() resp. fsst_import() */
+#define FSST_MAXHEADER (8+1+8+2048+1) /* maxlen of deserialized fsst header, produced/consumed by duckdb_fsst_export() resp. duckdb_fsst_import() */
 
-/* Space-efficient symbol table serialization (smaller than sizeof(fsst_decoder_t) - by saving on the unused bytes in symbols of len < 8). */
-unsigned int                /* OUT: number of bytes written in buf, at most sizeof(fsst_decoder_t) */
-fsst_export(
-   fsst_encoder_t *encoder, /* IN: the symbol table to dump. */ 
+/* Space-efficient symbol table serialization (smaller than sizeof(duckdb_fsst_decoder_t) - by saving on the unused bytes in symbols of len < 8). */
+unsigned int                /* OUT: number of bytes written in buf, at most sizeof(duckdb_fsst_decoder_t) */
+duckdb_fsst_export(
+   duckdb_fsst_encoder_t *encoder, /* IN: the symbol table to dump. */
    unsigned char *buf       /* OUT: pointer to a byte-buffer where to serialize this symbol table. */
 ); 
 
 /* Deallocate encoder. */
 void
-fsst_destroy(fsst_encoder_t*);
+duckdb_fsst_destroy(duckdb_fsst_encoder_t*);
 
 /* Return a decoder structure from serialized format (typically used in a block-, file- or row-group header). */
 unsigned int                /* OUT: number of bytes consumed in buf (0 on failure). */
-fsst_import(
-   fsst_decoder_t *decoder, /* IN: this symbol table will be overwritten. */ 
-   unsigned char *buf       /* OUT: pointer to a byte-buffer where fsst_export() serialized this symbol table. */
+duckdb_fsst_import(
+   duckdb_fsst_decoder_t *decoder, /* IN: this symbol table will be overwritten. */
+   unsigned char *buf       /* OUT: pointer to a byte-buffer where duckdb_fsst_export() serialized this symbol table. */
 ); 
 
 /* Return a decoder structure from an encoder. */
-fsst_decoder_t    
-fsst_decoder(
-   fsst_encoder_t *encoder   
+duckdb_fsst_decoder_t
+duckdb_fsst_decoder(
+   duckdb_fsst_encoder_t *encoder
 );
 
 /* Compress a batch of strings (on AVX512 machines best performance is obtained by compressing more than 32KB of string volume). */
 /* The output buffer must be large; at least "conservative space" (7+2*inputlength) for the first string for something to happen. */
 size_t                      /* OUT: the number of compressed strings (<=n) that fit the output buffer. */ 
-fsst_compress(
-   fsst_encoder_t *encoder, /* IN: encoder obtained from fsst_create(). */
+duckdb_fsst_compress(
+   duckdb_fsst_encoder_t *encoder, /* IN: encoder obtained from duckdb_fsst_create(). */
    size_t nstrings,         /* IN: number of strings in batch to compress. */
-   const size_t lenIn[],          /* IN: byte-lengths of the inputs */
-   const unsigned char *strIn[],  /* IN: input string start pointers. */
+   size_t lenIn[],          /* IN: byte-lengths of the inputs */
+   unsigned char *strIn[],  /* IN: input string start pointers. */
    size_t outsize,          /* IN: byte-length of output buffer. */
    unsigned char *output,   /* OUT: memory buffer to put the compressed strings in (one after the other). */
    size_t lenOut[],         /* OUT: byte-lengths of the compressed strings. */
@@ -141,10 +160,10 @@ fsst_compress(
 
 /* Decompress a single string, inlined for speed. */
 inline size_t /* OUT: bytesize of the decompressed string. If > size, the decoded output is truncated to size. */
-fsst_decompress(
-   const fsst_decoder_t *decoder,  /* IN: use this symbol table for compression. */
+duckdb_fsst_decompress(
+   duckdb_fsst_decoder_t *decoder,  /* IN: use this symbol table for compression. */
    size_t lenIn,             /* IN: byte-length of compressed string. */
-   const unsigned char *strIn,     /* IN: compressed string. */
+   unsigned char *strIn,     /* IN: compressed string. */
    size_t size,              /* IN: byte-length of output buffer. */
    unsigned char *output     /* OUT: memory buffer to put the decompressed string in. */
 ) {
@@ -165,14 +184,14 @@ fsst_decompress(
          code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code]; 
          code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code]; 
      } else { 
-         unsigned long firstEscapePos=__builtin_ctzl((unsigned long long) escapeMask)>>3;
+         unsigned long firstEscapePos=static_cast<unsigned long>(__builtin_ctzl((unsigned long long) escapeMask)>>3);
          switch(firstEscapePos) { /* Duff's device */
          case 3: code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code];
-                 // fall through
+			 DUCKDB_FSST_EXPLICIT_FALLTHROUGH;
          case 2: code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code];
-                 // fall through
+			 DUCKDB_FSST_EXPLICIT_FALLTHROUGH;
          case 1: code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code];
-                 // fall through
+			 DUCKDB_FSST_EXPLICIT_FALLTHROUGH;
          case 0: posIn+=2; strOut[posOut++] = strIn[posIn-1]; /* decompress an escaped byte */
          }
       }
@@ -192,7 +211,7 @@ fsst_decompress(
          } 
       }
       if (posIn < lenIn) { // last code cannot be an escape
-         code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code]; 
+         code = strIn[posIn++]; FSST_UNALIGNED_STORE(strOut+posOut, symbol[code]); posOut += len[code];
       }
    }
 #else
