@@ -202,26 +202,15 @@ const char* paged_string_pool::extract(dcode_t pos) const {
     }
 
     const unsigned char* compressed_start = &(pg->payload[page_offset]);
-    size_t compressed_size = 0;
     size_t remaining_in_page = PAGE_SIZE - page_offset;
 
     // 查找压缩字符串的结束位置（'\0'）
     const unsigned char* end = static_cast<const unsigned char*>(memchr(compressed_start, '\0', remaining_in_page));
     
-    if (end) {
-        compressed_size = end - compressed_start;
-    } else {
-        // 如果在当前页面没有找到结束符，需要查找下一个页面
-        compressed_size = remaining_in_page;
-        pid++;
-        pg = bpool_.fetch_page(pid | file_mask_);
-        end = static_cast<const unsigned char*>(memchr(pg->payload, '\0', PAGE_SIZE));
-        if (end) {
-            compressed_size += end - pg->payload;
-        } else {
-            throw std::runtime_error("Compressed string end not found");
-        }
-    }
+    if (!end) {
+        throw std::runtime_error("Compressed string end not found");
+    } 
+    size_t compressed_size = end - compressed_start;
 
     // 解压缩
     static thread_local std::vector<unsigned char> compressed_buffer;
@@ -230,7 +219,12 @@ const char* paged_string_pool::extract(dcode_t pos) const {
     static thread_local std::string decompressed;
     decompressed = compression.decompressString(compressed_buffer);
 
-    return decompressed.c_str();
+    // 将解压缩后的字符串复制到一个静态缓冲区
+    static thread_local std::vector<char> static_buffer;
+    static_buffer.assign(decompressed.begin(), decompressed.end());
+    static_buffer.push_back('\0');  // 确保以 null 结尾
+
+    return static_buffer.data();
 }
 
 // const char *paged_string_pool::extract(dcode_t pos) const {

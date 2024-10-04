@@ -32,7 +32,7 @@ public:
             string_pointers.push_back(reinterpret_cast<u8*>(const_cast<char*>(str.c_str())));
         }
 
-        encoder = duckdb_fsst_create(samples.size(), lengths.data(), string_pointers.data(), 0);
+        encoder = duckdb_fsst_create(samples.size(), lengths.data(), string_pointers.data(), 1);
 
         if (!encoder) {
             std::cerr << "Failed to create FSST encoder" << std::endl;
@@ -78,7 +78,7 @@ public:
 
     std::string decompressString(const std::vector<unsigned char>& compressed) const{
         std::string decompressed;
-        decompressed.resize(compressed.size() * 2); // 保守估计
+        decompressed.resize(compressed.size() * 4); // 保守估计
 
         size_t decompressed_length = duckdb_fsst_decompress(
             &decoder,
