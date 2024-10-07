@@ -339,6 +339,7 @@ set(src_files
   src/dict/paged_string_pool.cpp 
   src/dict/code_table.cpp
   src/dict/dict.cpp
+  src/dict/compressed_paged_string_pool.cpp
   src/storage/nodes.cpp
   src/storage/relationships.cpp
   src/storage/properties.cpp
