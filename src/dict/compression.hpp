@@ -92,7 +92,7 @@ public:
         return decompressed;
     }
 
-      std::vector<uint8_t> exportSymbolTable() const {
+    std::vector<uint8_t> exportSymbolTable() const {
         if (!encoder) {
             std::cerr << "Encoder not initialized. Cannot export symbol table." << std::endl;
             return {};
@@ -104,7 +104,7 @@ public:
         return buffer;
     }
 
-     bool importSymbolTable(const std::vector<uint8_t>& buffer) {
+    bool importSymbolTable(const std::vector<uint8_t>& buffer) {
         std::cout << "Importing symbol table. Buffer size: " << buffer.size() << std::endl;
 
          if (buffer.empty()) {
@@ -120,25 +120,15 @@ public:
 
         duckdb_fsst_decoder_t new_decoder;
         std::cout << "Calling duckdb_fsst_import" << std::endl;
+        std::cout << "Buffer size: " << buffer.size() << std::endl; 
 
+        // 建立解码器
         uint32_t consumed = duckdb_fsst_import(&new_decoder, const_cast<uint8_t*>(buffer.data()));
+        decoder = new_decoder;
         std::cout << "duckdb_fsst_import consumed: " << consumed << " bytes" << std::endl;
         
         // rebuild encoder
-        encoder = rebuild_encoder(new_decoder);
-
-        if (consumed == 0) {
-            std::cerr << "Failed to import symbol table" << std::endl;
-            return false;
-        }
-
-        if (!encoder) {
-            std::cerr << "Failed to create FSST encoder from imported symbol table" << std::endl;
-            return false;
-        }
-
-        decoder = new_decoder;
-        std::cout << "Symbol table imported successfully" << std::endl;
+        encoder = rebuild_encoder(&new_decoder);
 
         return true;
     }

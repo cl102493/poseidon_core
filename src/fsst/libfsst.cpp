@@ -443,6 +443,7 @@ extern "C" u32 duckdb_fsst_import(duckdb_fsst_decoder_t *decoder, u8 *buf) {
 	// version field (first 8 bytes) is now there just for future-proofness, unused still (skipped)
 	memcpy(&version, buf, 8);
 	if ((version>>32) != FSST_VERSION) return 0;
+	decoder->version = version;
 	decoder->zeroTerminated = buf[8]&1;
 	memcpy(lenHisto, buf+9, 8);
 
@@ -474,45 +475,72 @@ extern "C" u32 duckdb_fsst_import(duckdb_fsst_decoder_t *decoder, u8 *buf) {
 }
 
 // rebuild encoder
-extern "C" duckdb_fsst_encoder_t* rebuild_encoder(duckdb_fsst_decoder_t decoder) {
-	Encoder *encoder = new Encoder();
+extern "C" duckdb_fsst_encoder_t* rebuild_encoder(const duckdb_fsst_decoder_t* decoder) {
+	Encoder *new_encoder = new Encoder();
 	std::cout << "enter_rebuild_encoder " << std::endl;
-	encoder->symbolTable = std::make_shared<SymbolTable>();
+	new_encoder->symbolTable = std::make_shared<SymbolTable>();
 
 	 // 复制基本属性
-    encoder->symbolTable->zeroTerminated = decoder.zeroTerminated;
-    encoder->symbolTable->nSymbols = (decoder.version >> 8) & 0xFF;
-    encoder->symbolTable->suffixLim = (decoder.version >> 24) & 0xFF;
-    encoder->symbolTable->terminator = (decoder.version >> 16) & 0xFF;
+    new_encoder->symbolTable->suffixLim = (decoder->version >> 24) & 0xFF;
+	new_encoder->symbolTable->terminator = (decoder->version >> 16) & 0xFF;
+	new_encoder->symbolTable->nSymbols = (decoder->version >> 8) & 0xFF;
+	new_encoder->symbolTable->zeroTerminated = decoder->zeroTerminated;
 
-	 // 重建 symbols 数组
-    for (u32 i = 0; i < 256; i++) {
-        encoder->symbolTable->symbols[i].set_code_len(i, decoder.len[i]);
-        encoder->symbolTable->symbols[i].val.num = decoder.symbol[i];
-    }
+	 // Reconstruct symbols and lenHisto
+    memset(new_encoder->symbolTable->lenHisto, 0, sizeof(new_encoder->symbolTable->lenHisto));
 
-	memset(encoder->symbolTable->lenHisto, 0, sizeof(encoder->symbolTable->lenHisto));
-	for (u32 i = 0; i < 256; i++) {
-    if (decoder.len[i] > 0 && decoder.len[i] <= 8) {
-        encoder->symbolTable->lenHisto[decoder.len[i] - 1]++;
-    	}
-	}
-
-	    // 更新 byteCodes, shortCodes, 和 hashTab
-    for (u32 i = encoder->symbolTable->zeroTerminated; i < encoder->symbolTable->nSymbols; i++) {
-        Symbol& s = encoder->symbolTable->symbols[i];
-        u32 len = s.length();
-        if (len == 1) {
-            encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
-        } else if (len == 2) {
-            encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
-        } else if (len > 2) {
-            encoder->symbolTable->hashInsert(s);
+    for (int i = 0; i < 256; i++) {
+        if (decoder->len[i] > 0 && decoder->len[i] <= 8) {
+            Symbol& s = new_encoder->symbolTable->symbols[i];
+            s.set_code_len(i, decoder->len[i]);
+            s.val.num = decoder->symbol[i];
+            new_encoder->symbolTable->lenHisto[decoder->len[i] - 1]++;
         }
     }
 
-	memset(encoder->simdbuf, 0, FSST_BUFSZ);
-	return (duckdb_fsst_encoder_t*) encoder;
+    // Initialize hashTab, shortCodes, and byteCodes
+    for (u32 i = 0; i < 256; i++) {
+        Symbol& s = new_encoder->symbolTable->symbols[i];
+        if (s.length() > 0) {
+            if (s.length() == 1) {
+                new_encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
+            } else if (s.length() == 2) {
+                new_encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
+            } else {
+                u32 h = s.hash() & (new_encoder->symbolTable->hashTabSize - 1);
+                new_encoder->symbolTable->hashTab[h] = s;
+            }
+        }
+    }
+
+	//  // 重建 symbols 数组
+    // for (u32 i = 0; i < 256; i++) {
+    //     encoder->symbolTable->symbols[i].set_code_len(i, decoder.len[i]);
+    //     encoder->symbolTable->symbols[i].val.num = decoder.symbol[i];
+    // }
+
+	// memset(encoder->symbolTable->lenHisto, 0, sizeof(encoder->symbolTable->lenHisto));
+	// for (u32 i = 0; i < 256; i++) {
+    // if (decoder.len[i] > 0 && decoder.len[i] <= 8) {
+    //     encoder->symbolTable->lenHisto[decoder.len[i] - 1]++;
+    // 	}
+	// }
+
+	//     // 更新 byteCodes, shortCodes, 和 hashTab
+    // for (u32 i = encoder->symbolTable->zeroTerminated; i < encoder->symbolTable->nSymbols; i++) {
+    //     Symbol& s = encoder->symbolTable->symbols[i];
+    //     u32 len = s.length();
+    //     if (len == 1) {
+    //         encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
+    //     } else if (len == 2) {
+    //         encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
+    //     } else if (len > 2) {
+    //         encoder->symbolTable->hashInsert(s);
+    //     }
+    // }
+
+	// memset(encoder->simdbuf, 0, FSST_BUFSZ);
+	return (duckdb_fsst_encoder_t*) new_encoder;
 }
 
 // runtime check for simd
