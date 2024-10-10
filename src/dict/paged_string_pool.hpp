@@ -26,15 +26,15 @@
 class paged_string_pool {
 public:
     paged_string_pool(bufferpool& bp, uint64_t fid);
-    ~paged_string_pool() = default;
+    virtual ~paged_string_pool() = default;
     
-    const char* extract(dcode_t pos) const;
-    bool equal(dcode_t pos, const std::string& s) const;
+    virtual const char* extract(dcode_t pos) const;
+    virtual bool equal(dcode_t pos, const std::string& s) const;
     
-    dcode_t add(const std::string& str);
+    virtual dcode_t add(const std::string& str);
     
-    bool scan(std::function<void(const char *s, dcode_t c)> cb);
-    void print() const;
+    virtual bool scan(std::function<void(const char *s, dcode_t c)> cb);
+    virtual void print() const;
     
 private:
     bufferpool& bpool_;

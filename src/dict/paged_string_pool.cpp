@@ -34,8 +34,10 @@ paged_string_pool::paged_string_pool(bufferpool& bp, uint64_t fid) :
 
 bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) {
     uint32_t npage = 0u; // number of page processed
+    //std::cout << "Entering scan(), npages_ = " << npages_ << std::endl;
 
     bpool_.scan_file(file_id_, [&](auto pg) {
+        // std::cout << "Processing page " << npage << std::endl;
         auto data = &(pg->payload[0]);
         auto lastp = sizeof(uint32_t);
         auto spos = npage * PAGE_SIZE + sizeof(uint32_t);
@@ -43,7 +45,9 @@ bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) {
 
         for (auto p = sizeof(uint32_t); p < PAGE_SIZE; p++, spos++) {
             if (data[p] == '\0' && data[lastp] != '\0') {
+                 //std::cout << "在位置 " << ppos << " 找到字符串，内容：" << (const char *)&data[lastp] << std::endl << std::flush;
                 cb((const char *)&data[lastp], ppos);
+                //std::cout << "回调函数执行完毕，位置：" << ppos << std::endl << std::flush;
                 lastp = p + 1;
                 ppos = spos + 1;
             }
@@ -54,6 +58,8 @@ bool paged_string_pool::scan(std::function<void(const char *s, dcode_t c)> cb) {
         spdlog::info("ERROR: string dictionary corrupted - only {} of {} pages processed.", npage, npages_);
         return false; 
     }
+    //std::cout << "Exiting scan(), processed " << npage << " pages" << std::endl;
+
     return true;
 }
 

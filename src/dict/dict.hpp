@@ -27,6 +27,7 @@
 
 #include "bufferpool.hpp"
 #include "paged_string_pool.hpp"
+#include "compressed_paged_string_pool.hpp"
 
 #include "code_table.hpp"
 
@@ -105,7 +106,7 @@ public:
 private:
     bufferpool& bpool_;
     std::shared_ptr<paged_file> dict_file_;
-    std::shared_ptr<paged_string_pool> pool_;  // the string pool for storing the actual strings
+    std::shared_ptr<compressed_paged_string_pool> pool_;  // the string pool for storing the actual strings
     code_table *table_;  		             // the hash table for mapping codes to strings
     mutable std::shared_mutex m_;        // a mutex for synchronizing access to the dictionary
 };

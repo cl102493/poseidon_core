@@ -24,7 +24,7 @@ dict::dict(bufferpool& bpool, const std::string& prefix, uint32_t init_pool_size
     dict_file_ = std::make_shared<paged_file>();
     dict_file_->open(prefix == "" ? "dict.db" : prefix + "/dict.db", DICT_FILE_ID);
     bpool_.register_file(DICT_FILE_ID, dict_file_);
-    pool_ = std::make_shared<paged_string_pool>(bpool_, DICT_FILE_ID);
+    pool_ = std::make_shared<compressed_paged_string_pool>(bpool_, DICT_FILE_ID);
     initialize();
     spdlog::debug("dictionary initialized: {} strings", table_->size());
 }
