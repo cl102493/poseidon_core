@@ -16,6 +16,9 @@ public:
 
   double get_compression_ratio() const { return compression_ratio; }
 
+  void save_fsst_encoder(const std::string &path) const;
+  void load_fsst_encoder(const std::string &path);
+
 private:
   duckdb_fsst_encoder_t *fsst_encoder;
   mutable duckdb_fsst_decoder_t fsst_decoder;

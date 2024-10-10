@@ -20,20 +20,21 @@
 #include "spdlog/spdlog.h"
 #include "dict.hpp"
 
-dict::dict(bufferpool& bpool, const std::string& prefix, uint32_t init_pool_size) : bpool_(bpool) {
+dict::dict(bufferpool& bpool, const std::string& prefix, uint32_t init_pool_size) : bpool_(bpool), prefix_(prefix) {
     dict_file_ = std::make_shared<paged_file>();
     dict_file_->open(prefix == "" ? "dict.db" : prefix + "/dict.db", DICT_FILE_ID);
     bpool_.register_file(DICT_FILE_ID, dict_file_);
     pool_ = std::make_shared<compressed_paged_string_pool>(bpool_, DICT_FILE_ID);
+    load_symbol_table(prefix);
     initialize();
     spdlog::debug("dictionary initialized: {} strings", table_->size());
 }
 
 dict::~dict() {
+    save_symbol_table(prefix_);
     bpool_.flush_all();
     dict_file_->close();
-
-  delete table_;
+    delete table_;
 }
 
 void dict::initialize() {
@@ -91,3 +92,13 @@ std::size_t dict::count_string_pool_size() {
     return num;   
 }
  
+
+  void dict::save_symbol_table(const std::string &prefix) {
+    std::string table_file_path = prefix + "/symbol_table.bin";
+    pool_->save_fsst_encoder(table_file_path);
+  }
+
+  void dict::load_symbol_table(const std::string &prefix) {
+    std::string table_file_path = prefix + "/symbol_table.bin";
+    pool_->load_fsst_encoder(table_file_path);
+  }

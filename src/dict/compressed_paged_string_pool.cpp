@@ -1,5 +1,7 @@
 #include "compressed_paged_string_pool.hpp"
+#include "spdlog/spdlog.h"
 #include <iostream>
+
 compressed_paged_string_pool::compressed_paged_string_pool(bufferpool &bp,
                                                            uint64_t fid)
     : paged_string_pool(bp, fid), fsst_encoder(nullptr),
@@ -12,7 +14,6 @@ compressed_paged_string_pool::~compressed_paged_string_pool() {
 }
 
 void compressed_paged_string_pool::initialize_fsst() {
-  //std::cout << "Entering initialize_fsst()" << std::endl;
   std::vector<size_t> sample_lengths;
   std::vector<unsigned char *> sample_string_ptrs;
 
@@ -52,34 +53,12 @@ dcode_t compressed_paged_string_pool::add(const std::string &str) {
   std::string compressed = compress_string(str);
   dcode_t code = paged_string_pool::add(compressed);
   return code;
-
-  //   double old_ratio = compression_ratio.load();
-  //   double new_ratio = (old_ratio * code +
-  //                       static_cast<double>(compressed.length()) /
-  //                       str.length()) /
-  //                      (code + 1);
-  //   compression_ratio.store(new_ratio);
-
-  //   if (!fsst_encoder) {
-  //     return paged_string_pool::add(str);
-  //   }
-  //   std::string compressed = compress_string(str);
-  //   dcode_t code = paged_string_pool::add(compressed);
-
-  //   //   std::string compressed = compress_string(str);
-  //   //     return paged_string_pool::add(compressed);
-
-  //   compression_ratio =
-  //       (compression_ratio * (code - 1) +
-  //        static_cast<double>(compressed.length()) / str.length()) /
-  //       code;
-
-  //   return code;
 }
 
 std::string
 compressed_paged_string_pool::compress_string(const std::string &input) const {
-  std::vector<unsigned char> output(input.length() * 2 + 7); // Worst case scenario
+  std::vector<unsigned char> output(input.length() * 2 +
+                                    7); // Worst case scenario
   size_t compressed_length;
   unsigned char *compressed_ptr;
 
@@ -91,9 +70,7 @@ compressed_paged_string_pool::compress_string(const std::string &input) const {
                        output.size(), output.data(), &compressed_length,
                        &compressed_ptr);
 
-  //return std::string(reinterpret_cast<char *>(compressed_ptr),
-  //                   compressed_length);
-    return std::string(output.data(), output.data() + compressed_length);
+  return std::string(output.data(), output.data() + compressed_length);
 }
 
 std::string compressed_paged_string_pool::decompress_string(
@@ -126,6 +103,43 @@ bool compressed_paged_string_pool::equal(dcode_t pos,
     return strcmp(stored, s.c_str()) == 0;
   }
   return decompress_string(stored) == s;
-  //   const char *compressed = paged_string_pool::extract(pos);
-  //   return decompress_string(compressed) == s;
+}
+
+void compressed_paged_string_pool::save_fsst_encoder(
+    const std::string &path) const {
+  if (fsst_initialized.load()) {
+    std::ofstream outfile(path, std::ios::binary);
+    if (outfile.is_open()) {
+      std::vector<uint8_t> buffer(FSST_MAXHEADER);
+      uint32_t len = duckdb_fsst_export(fsst_encoder, buffer.data());
+      buffer.resize(len);
+      outfile.write(reinterpret_cast<const char *>(buffer.data()), len);
+      outfile.close();
+    }
+  }
+}
+
+void compressed_paged_string_pool::load_fsst_encoder(const std::string &path) {
+  std::ifstream infile(path, std::ios::binary);
+  if (!infile.is_open()) {
+    spdlog::warn("FSST encoder file not found: {}. Continuing without loading.",
+                 path);
+    return;
+  }
+  infile.seekg(0, std::ios::end);
+  std::streampos fileSize = infile.tellg();
+  infile.seekg(0, std::ios::beg);
+
+  std::vector<uint8_t> buffer(fileSize);
+  infile.read(reinterpret_cast<char *>(buffer.data()), fileSize);
+
+  if (infile.gcount() > 0) {
+    duckdb_fsst_decoder_t new_decoder;
+    uint32_t consumed =
+        duckdb_fsst_import(&new_decoder, const_cast<uint8_t *>(buffer.data()));
+    fsst_decoder = new_decoder;
+  }
+
+  infile.close();
+  fsst_initialized.store(true);
 }

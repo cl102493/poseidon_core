@@ -554,10 +554,6 @@ int main(int argc, char* argv[]) {
     spdlog::info("open poolset {}", pool_path);
     pool = graph_pool::open(pool_path, true);
     graph = pool->open_graph(db_name, bp_size);
-    spdlog::info("--------- print_pool ---------");
-    graph->get_dictionary()->print_pool();
-    spdlog::info("--------- print_table ---------");
-    graph->get_dictionary()->print_table();
   }
 
   if (!import_files.empty()) {
