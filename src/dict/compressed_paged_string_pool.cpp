@@ -28,6 +28,8 @@ void compressed_paged_string_pool::initialize_fsst() {
                          sample_string_ptrs.data(), 1);
   fsst_decoder = duckdb_fsst_decoder(fsst_encoder);
   fsst_initialized.store(true);
+
+  // sample_strings.clear();
 }
 
 // void compressed_paged_string_pool::try_initialize_fsst() {
@@ -40,7 +42,6 @@ void compressed_paged_string_pool::initialize_fsst() {
 
 dcode_t compressed_paged_string_pool::add(const std::string &str) {
   // try_initialize_fsst();
-
   if (!fsst_initialized.load()) {
     sample_strings.push_back(str);
     dcode_t code = paged_string_pool::add(str);
@@ -52,7 +53,7 @@ dcode_t compressed_paged_string_pool::add(const std::string &str) {
 
   std::string compressed = compress_string(str);
   dcode_t code = paged_string_pool::add(compressed);
-  return code;
+  return set_compression_flag(code);
 }
 
 std::string
@@ -87,13 +88,22 @@ std::string compressed_paged_string_pool::decompress_string(
 }
 
 const char *compressed_paged_string_pool::extract(dcode_t pos) const {
-  const char *stored = paged_string_pool::extract(pos);
-  if (!fsst_initialized.load()) {
-    return stored;
+  if (!is_compressed(pos)) {
+    return paged_string_pool::extract(pos);
   }
+  pos = clear_compression_flag(pos);
+  const char *stored = paged_string_pool::extract(pos);
   static thread_local std::string decompressed;
   decompressed = decompress_string(stored);
   return decompressed.c_str();
+
+  //   const char *stored = paged_string_pool::extract(pos);
+  //   if (!fsst_initialized.load()) {
+  //     return stored;
+  //   }
+  //   static thread_local std::string decompressed;
+  //   decompressed = decompress_string(stored);
+  //   return decompressed.c_str();
 }
 
 bool compressed_paged_string_pool::equal(dcode_t pos,

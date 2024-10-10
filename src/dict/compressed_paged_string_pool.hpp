@@ -20,6 +20,22 @@ public:
   void load_fsst_encoder(const std::string &path);
 
 private:
+  void initialize_fsst();
+  std::string compress_string(const std::string &input) const;
+  std::string decompress_string(const std::string &compressed) const;
+  // void try_initialize_fsst();
+  dcode_t set_compression_flag(dcode_t code) const {
+    return code | COMPRESSION_FLAG;
+  }
+
+  bool is_compressed(dcode_t code) const {
+    return (code & COMPRESSION_FLAG) != 0;
+  }
+
+  dcode_t clear_compression_flag(dcode_t code) const {
+    return code & ~COMPRESSION_FLAG;
+  }
+
   duckdb_fsst_encoder_t *fsst_encoder;
   mutable duckdb_fsst_decoder_t fsst_decoder;
 
@@ -27,11 +43,8 @@ private:
   std::atomic<bool> fsst_initialized;
   std::vector<std::string> sample_strings;
   static const size_t SAMPLE_THRESHOLD = 100;
-
-  void initialize_fsst();
-  std::string compress_string(const std::string &input) const;
-  std::string decompress_string(const std::string &compressed) const;
-  // void try_initialize_fsst();
+  static const dcode_t COMPRESSION_FLAG =
+      1U << 31; // Use the highest bit as a compression flag
 };
 
 #endif
