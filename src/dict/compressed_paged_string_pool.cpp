@@ -9,7 +9,7 @@ compressed_paged_string_pool::compressed_paged_string_pool(bufferpool &bp,
 
 compressed_paged_string_pool::~compressed_paged_string_pool() {
   if (fsst_encoder) {
-    duckdb_fsst_destroy(fsst_encoder);
+    pool_fsst_destroy(fsst_encoder);
   }
 }
 
@@ -24,9 +24,9 @@ void compressed_paged_string_pool::initialize_fsst() {
   }
 
   fsst_encoder =
-      duckdb_fsst_create(sample_strings.size(), sample_lengths.data(),
+      pool_fsst_create(sample_strings.size(), sample_lengths.data(),
                          sample_string_ptrs.data(), 1);
-  fsst_decoder = duckdb_fsst_decoder(fsst_encoder);
+  fsst_decoder = pool_fsst_decoder(fsst_encoder);
   fsst_initialized.store(true);
 
   // sample_strings.clear();
@@ -67,7 +67,7 @@ compressed_paged_string_pool::compress_string(const std::string &input) const {
   unsigned char *input_ptr =
       reinterpret_cast<unsigned char *>(const_cast<char *>(input.c_str()));
 
-  duckdb_fsst_compress(fsst_encoder, 1, &input_length, &input_ptr,
+  pool_fsst_compress(fsst_encoder, 1, &input_length, &input_ptr,
                        output.size(), output.data(), &compressed_length,
                        &compressed_ptr);
 
@@ -78,7 +78,7 @@ std::string compressed_paged_string_pool::decompress_string(
     const std::string &compressed) const {
   std::vector<unsigned char> output(compressed.length() *
                                     4); // Estimate decompressed size
-  size_t decompressed_length = duckdb_fsst_decompress(
+  size_t decompressed_length = pool_fsst_decompress(
       &fsst_decoder, compressed.length(),
       reinterpret_cast<unsigned char *>(const_cast<char *>(compressed.c_str())),
       output.size(), output.data());
@@ -121,7 +121,7 @@ void compressed_paged_string_pool::save_fsst_encoder(
     std::ofstream outfile(path, std::ios::binary);
     if (outfile.is_open()) {
       std::vector<uint8_t> buffer(FSST_MAXHEADER);
-      uint32_t len = duckdb_fsst_export(fsst_encoder, buffer.data());
+      uint32_t len = pool_fsst_export(fsst_encoder, buffer.data());
       buffer.resize(len);
       outfile.write(reinterpret_cast<const char *>(buffer.data()), len);
       outfile.close();
@@ -144,9 +144,9 @@ void compressed_paged_string_pool::load_fsst_encoder(const std::string &path) {
   infile.read(reinterpret_cast<char *>(buffer.data()), fileSize);
 
   if (infile.gcount() > 0) {
-    duckdb_fsst_decoder_t new_decoder;
+    pool_fsst_decoder_t new_decoder;
     uint32_t consumed =
-        duckdb_fsst_import(&new_decoder, const_cast<uint8_t *>(buffer.data()));
+        pool_fsst_import(&new_decoder, const_cast<uint8_t *>(buffer.data()));
     fsst_decoder = new_decoder;
   }
 

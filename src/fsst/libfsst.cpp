@@ -361,7 +361,7 @@ vector<u8*> makeSample(u8* sampleBuf, u8* strIn[], size_t *lenIn, size_t nlines,
 	return sample;
 }
 
-extern "C" duckdb_fsst_encoder_t* duckdb_fsst_create(size_t n, size_t lenIn[], u8 *strIn[], int zeroTerminated) {
+extern "C" pool_fsst_encoder_t* pool_fsst_create(size_t n, size_t lenIn[], u8 *strIn[], int zeroTerminated) {
 	u8* sampleBuf = new u8[FSST_SAMPLEMAXSZ];
 	unique_ptr<vector<size_t>> sample_sizes;
 	vector<u8*> sample = makeSample(sampleBuf, strIn, lenIn, n?n:1, sample_sizes); // careful handling of input to get a right-size and representative sample
@@ -369,21 +369,21 @@ extern "C" duckdb_fsst_encoder_t* duckdb_fsst_create(size_t n, size_t lenIn[], u
 	size_t* sampleLen = sample_sizes ? sample_sizes->data() : &lenIn[0];
 	encoder->symbolTable = shared_ptr<SymbolTable>(buildSymbolTable(encoder->counters, sample, sampleLen, zeroTerminated));
 	delete[] sampleBuf;
-	return (duckdb_fsst_encoder_t*) encoder;
+	return (pool_fsst_encoder_t*) encoder;
 }
 
 /* create another encoder instance, necessary to do multi-threaded encoding using the same symbol table */
-extern "C" duckdb_fsst_encoder_t* duckdb_fsst_duplicate(duckdb_fsst_encoder_t *encoder) {
+extern "C" pool_fsst_encoder_t* pool_fsst_duplicate(pool_fsst_encoder_t *encoder) {
 	Encoder *e = new Encoder();
 	e->symbolTable = ((Encoder*)encoder)->symbolTable; // it is a shared_ptr
-	return (duckdb_fsst_encoder_t*) e;
+	return (pool_fsst_encoder_t*) e;
 }
 
 // export a symbol table in compact format.
-extern "C" u32 duckdb_fsst_export(duckdb_fsst_encoder_t *encoder, u8 *buf) {
+extern "C" u32 pool_fsst_export(pool_fsst_encoder_t *encoder, u8 *buf) {
 	Encoder *e = (Encoder*) encoder;
 	// In ->version there is a versionnr, but we hide also suffixLim/terminator/nSymbols there.
-	// This is sufficient in principle to *reconstruct* a duckdb_fsst_encoder_t from a duckdb_fsst_decoder_t
+	// This is sufficient in principle to *reconstruct* a pool_fsst_encoder_t from a pool_fsst_decoder_t
 	// (such functionality could be useful to append compressed data to an existing block).
 	//
 	// However, the hash function in the encoder hash table is endian-sensitive, and given its
@@ -419,7 +419,7 @@ extern "C" u32 duckdb_fsst_export(duckdb_fsst_encoder_t *encoder, u8 *buf) {
 
 #define FSST_CORRUPT 32774747032022883 /* 7-byte number in little endian containing "corrupt" */
 
-extern "C" u32 duckdb_fsst_import(duckdb_fsst_decoder_t *decoder, u8 *buf) {
+extern "C" u32 pool_fsst_import(pool_fsst_decoder_t *decoder, u8 *buf) {
 	u64 version = 0;
 	u32 code, pos = 17;
 	u8 lenHisto[8];
@@ -482,7 +482,7 @@ size_t compressAuto(Encoder *e, size_t nlines, size_t lenIn[], u8 *strIn[], size
 }
 
 // the main compression function (everything automatic)
-extern "C" size_t duckdb_fsst_compress(duckdb_fsst_encoder_t *encoder, size_t nlines, size_t lenIn[], u8 *strIn[], size_t size, u8 *output, size_t *lenOut, u8 *strOut[]) {
+extern "C" size_t pool_fsst_compress(pool_fsst_encoder_t *encoder, size_t nlines, size_t lenIn[], u8 *strIn[], size_t size, u8 *output, size_t *lenOut, u8 *strOut[]) {
 	// to be faster than scalar, simd needs 64 lines or more of length >=12; or fewer lines, but big ones (totLen > 32KB)
 	size_t totLen = accumulate(lenIn, lenIn+nlines, 0);
 	int simd = totLen > nlines*12 && (nlines > 64 || totLen > (size_t) 1<<15);
@@ -490,17 +490,17 @@ extern "C" size_t duckdb_fsst_compress(duckdb_fsst_encoder_t *encoder, size_t nl
 }
 
 /* deallocate encoder */
-extern "C" void duckdb_fsst_destroy(duckdb_fsst_encoder_t* encoder) {
+extern "C" void pool_fsst_destroy(pool_fsst_encoder_t* encoder) {
 	Encoder *e = (Encoder*) encoder;
 	delete e;
 }
 
 /* very lazy implementation relying on export and import */
-extern "C" duckdb_fsst_decoder_t duckdb_fsst_decoder(duckdb_fsst_encoder_t *encoder) {
-	u8 buf[sizeof(duckdb_fsst_decoder_t)];
-	u32 cnt1 = duckdb_fsst_export(encoder, buf);
-	duckdb_fsst_decoder_t decoder;
-	u32 cnt2 = duckdb_fsst_import(&decoder, buf);
+extern "C" pool_fsst_decoder_t pool_fsst_decoder(pool_fsst_encoder_t *encoder) {
+	u8 buf[sizeof(pool_fsst_decoder_t)];
+	u32 cnt1 = pool_fsst_export(encoder, buf);
+	pool_fsst_decoder_t decoder;
+	u32 cnt2 = pool_fsst_import(&decoder, buf);
 	assert(cnt1 == cnt2); (void) cnt1; (void) cnt2;
 	return decoder;
 }

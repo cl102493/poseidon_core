@@ -6,14 +6,14 @@ find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-add_library(duckdb_fsst STATIC libfsst.cpp)
+add_library(poseidon_fsst STATIC libfsst.cpp)
 
-target_include_directories(duckdb_fsst PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-set_target_properties(duckdb_fsst PROPERTIES EXPORT_NAME duckdb_fsst)
+target_include_directories(poseidon_fsst PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+set_target_properties(poseidon_fsst PROPERTIES EXPORT_NAME poseidon_fsst)
 
-install(TARGETS duckdb_fsst
-        EXPORT "${DUCKDB_EXPORT_SET}"
+install(TARGETS poseidon_fsst
+        EXPORT "${POSEIDON_EXPORT_SET}"
         LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
         ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
 
-#disable_target_warnings(duckdb_fsst)
+#disable_target_warnings(poseidon_fsst)

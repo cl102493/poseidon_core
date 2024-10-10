@@ -36,15 +36,14 @@ private:
     return code & ~COMPRESSION_FLAG;
   }
 
-  duckdb_fsst_encoder_t *fsst_encoder;
-  mutable duckdb_fsst_decoder_t fsst_decoder;
+  pool_fsst_encoder_t *fsst_encoder;
+  mutable pool_fsst_decoder_t fsst_decoder;
 
   std::atomic<double> compression_ratio;
   std::atomic<bool> fsst_initialized;
   std::vector<std::string> sample_strings;
   static const size_t SAMPLE_THRESHOLD = 100;
-  static const dcode_t COMPRESSION_FLAG =
-      1U << 31; // Use the highest bit as a compression flag
+  static const dcode_t COMPRESSION_FLAG =1U << 31; // Use the highest bit as a compression flag
 };
 
 #endif

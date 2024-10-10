@@ -222,8 +222,8 @@ endif()
 # FSST
 ######################
 #
-# 定义 DUCKDB_EXPORT_SET（如果在 fsst/CMakeLists.txt 中使用）
-set(DUCKDB_EXPORT_SET "duckdb-exports")
+# 定义 POSEIDON_EXPORT_SET（如果在 fsst/CMakeLists.txt 中使用）
+set(POSEIDON_EXPORT_SET "poseidon-exports")
 # 定义安装目录（如果在 fsst/CMakeLists.txt 中使用）
 set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/fsst)
@@ -418,7 +418,7 @@ target_link_libraries(poseidon_core
   Boost::thread
   spdlog::spdlog_header_only
   fmt::fmt
-  duckdb_fsst
+  poseidon_fsst
 )
 
 
@@ -445,7 +445,7 @@ target_link_libraries(poseidon
   ${Python3_LIBRARIES}
   spdlog::spdlog_header_only
   fmt::fmt
-  duckdb_fsst
+  poseidon_fsst
 )
 
 set_target_properties(poseidon PROPERTIES PREFIX "" SUFFIX ".so")
