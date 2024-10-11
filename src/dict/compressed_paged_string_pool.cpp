@@ -118,7 +118,7 @@ bool compressed_paged_string_pool::equal(dcode_t pos,
 void compressed_paged_string_pool::save_fsst_encoder(
     const std::string &path) const {
   if (fsst_initialized.load()) {
-    std::ofstream outfile(path, std::ios::binary);
+    std::ofstream outfile(path, std::ios::binary |std::ios::app);
     if (outfile.is_open()) {
       std::vector<uint8_t> buffer(FSST_MAXHEADER);
       uint32_t len = pool_fsst_export(fsst_encoder, buffer.data());
@@ -148,6 +148,7 @@ void compressed_paged_string_pool::load_fsst_encoder(const std::string &path) {
     uint32_t consumed =
         pool_fsst_import(&new_decoder, const_cast<uint8_t *>(buffer.data()));
     fsst_decoder = new_decoder;
+    fsst_encoder = rebuild_encoder(&new_decoder);
   }
 
   infile.close();

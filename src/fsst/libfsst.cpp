@@ -457,6 +457,45 @@ extern "C" u32 pool_fsst_import(pool_fsst_decoder_t *decoder, u8 *buf) {
 	return pos;
 }
 
+extern "C" pool_fsst_encoder_t* rebuild_encoder(const pool_fsst_decoder_t* decoder) {
+	Encoder *new_encoder = new Encoder();
+	std::cout << "enter_rebuild_encoder " << std::endl;
+	new_encoder->symbolTable = std::make_shared<SymbolTable>();
+
+	// rebuild the symbol table
+	new_encoder->symbolTable->suffixLim = (decoder->version >> 24) & 0xFF;
+	new_encoder->symbolTable->terminator = (decoder->version >> 16) & 0xFF;
+	new_encoder->symbolTable->nSymbols = (decoder->version >> 8) & 0xFF;
+	new_encoder->symbolTable->zeroTerminated = decoder->zeroTerminated;
+
+	// Reconstruct symbols and lenHisto
+    memset(new_encoder->symbolTable->lenHisto, 0, sizeof(new_encoder->symbolTable->lenHisto));
+	for (int i = 0; i < 256; i++) {
+        if (decoder->len[i] > 0 && decoder->len[i] <= 8) {
+            Symbol& s = new_encoder->symbolTable->symbols[i];
+            s.set_code_len(i, decoder->len[i]);
+            s.val.num = decoder->symbol[i];
+            new_encoder->symbolTable->lenHisto[decoder->len[i] - 1]++;
+        }
+    }
+
+    // Initialize hashTab, shortCodes, and byteCodes
+    for (u32 i = 0; i < 256; i++) {
+        Symbol& s = new_encoder->symbolTable->symbols[i];
+        if (s.length() > 0) {
+            if (s.length() == 1) {
+                new_encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
+            } else if (s.length() == 2) {
+                new_encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
+            } else {
+                u32 h = s.hash() & (new_encoder->symbolTable->hashTabSize - 1);
+                new_encoder->symbolTable->hashTab[h] = s;
+            }
+        }
+    }
+	return (pool_fsst_encoder_t*) new_encoder;
+}
+
 // runtime check for simd
 inline size_t _compressImpl(Encoder *e, size_t nlines, size_t lenIn[], u8 *strIn[], size_t size, u8 *output, size_t *lenOut, u8 *strOut[], bool noSuffixOpt, bool avoidBranch, int) {
 	return compressBulk(*e->symbolTable, nlines, lenIn, strIn, size, output, lenOut, strOut, noSuffixOpt, avoidBranch);
