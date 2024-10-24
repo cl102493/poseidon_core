@@ -11,6 +11,7 @@ if(NOT PMEM_MNT_PATH)
   set(PMEM_MNT_PATH "/mnt/pmem0/poseidon")
 endif()
 
+option(USE_PMDK     "Use Persistent Memory Development Kit"      ON)
 option(USE_LLVM         "Use LLVM for query compilation"         OFF)
 option(BUILD_PYTHON     "Build python interface for poseidon"    ON)
 option(QOP_PROFILING    "Enable query profiling"                 ON)
@@ -21,7 +22,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(LLVM_DIR "/opt/homebrew/opt/llvm@12/lib/cmake/llvm")
   set(ANTLR_EXECUTABLE "/opt/homebrew/Cellar/antlr/4.13.1/antlr-4.13.1-complete.jar")
 else()
-  set(ANTLR_EXECUTABLE "${CMAKE_SOURCE_DIR}/jars/antlr4-4.13.1-complete.jar")
+  set(ANTLR_EXECUTABLE "${CMAKE_SOURCE_DIR}/jars/antlr-4.13.1-complete.jar")
 endif()
 
 # Don't try to contact github everytime.
@@ -157,6 +158,21 @@ FetchContent_MakeAvailable(CSV)
 )
 
 FetchContent_MakeAvailable(spdlog)
+
+if(USE_PMDK)
+  message(STATUS "正在配置 PMDK 支持")
+  include(cmake/pmdk.cmake)
+  
+  if(NOT PMDK_FOUND)
+    message(FATAL_ERROR "未找到 PMDK。请安装 PMDK 或禁用 USE_PMDK 选项。")
+  endif()
+
+  include_directories(${PMDK_INCLUDE_DIRS})
+  link_directories(${PMDK_LIBRARY_DIRS})
+  add_definitions(${PMDK_CFLAGS_OTHER})
+else()
+  message(STATUS "构建时不使用 PMDK 支持")
+endif()
 
 if(USE_LLVM MATCHES ON)
 # LLVM ============================================================== #
@@ -398,11 +414,13 @@ target_link_libraries(poseidon_core
   Boost::thread
   spdlog::spdlog_header_only
   fmt::fmt
+  ${PMDK_LIBRARIES}
 )
 
 
 target_include_directories( ${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
+    ${PMDK_LIBRARIES}
 )
 
 if (BUILD_PYTHON)
@@ -423,6 +441,7 @@ target_link_libraries(poseidon
   ${Python3_LIBRARIES}
   spdlog::spdlog_header_only
   fmt::fmt
+  ${PMDK_LIBRARIES}
 )
 
 set_target_properties(poseidon PROPERTIES PREFIX "" SUFFIX ".so")

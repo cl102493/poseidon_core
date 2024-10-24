@@ -29,7 +29,7 @@
 #include "paged_file.hpp"
 #include "lru_list.hpp"
 
-#define DEFAULT_BUFFER_SIZE 5000 // 1000
+#define DEFAULT_BUFFER_SIZE 1000 // 1000
 #define MAX_PFILES          15 // 4 bits
 
 /**
