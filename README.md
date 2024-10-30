@@ -200,3 +200,6 @@ The architecture of the persistent memory-based version is described **[here](ht
 * [query recovery](https://doi.org/10.1145/3465998.3466011),
 * [processing-in-memory](https://doi.org/10.1145/3592980.3595323),
 * [temporal graph processing](https://doi.org/10.1007/978-3-031-42914-9_8).
+
+
+./build/pcli --pool demo --db testdb  -f n4j --delimiter , --import nodes:Actor:/Users/lei/Desktop/poseidon/poseidon_core/test/c_name.csv
