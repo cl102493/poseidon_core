@@ -77,7 +77,7 @@ compressed_paged_string_pool::compress_string(const std::string &input) const {
 std::string compressed_paged_string_pool::decompress_string(
     const std::string &compressed) const {
   std::vector<unsigned char> output(compressed.length() *
-                                    4); // Estimate decompressed size
+                                    2 + 8); // Estimate decompressed size
   size_t decompressed_length = pool_fsst_decompress(
       &fsst_decoder, compressed.length(),
       reinterpret_cast<unsigned char *>(const_cast<char *>(compressed.c_str())),

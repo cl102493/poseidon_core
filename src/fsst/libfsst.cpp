@@ -253,7 +253,7 @@ static inline size_t compressBulk(SymbolTable &symbolTable, size_t nlines, size_
 	auto compressVariant = [&](bool noSuffixOpt, bool avoidBranch) {
 		while (cur < end) {
 			u64 word = fsst_unaligned_load(cur);
-			size_t code = symbolTable.shortCodes[word & 0xFFFF];
+			size_t code = symbolTable.shortCodes[word & 0xFFFF];    // 相当于word的前个字节对应的短码
 			if (noSuffixOpt && ((u8) code) < suffixLim) {
 				// 2 byte code without having to worry about longer matches
 				*out++ = (u8) code; cur += 2;
