@@ -21,7 +21,7 @@
 #define shortest_path_hpp_
 
 #include "graph_db.hpp"
-#include "query_ctx.hpp"
+// #include "query_ctx.hpp"
 
 /**
  * A struct containing shortest path information.

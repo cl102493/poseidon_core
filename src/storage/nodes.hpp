@@ -1,21 +1,3 @@
-/*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
- *
- * This file is part of the Poseidon package.
- *
- * Poseidon is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Poseidon is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef nodes_hpp_
 #define nodes_hpp_
@@ -82,7 +64,7 @@ public:
       : id_(UNKNOWN), from_rship_list(UNKNOWN), to_rship_list(UNKNOWN),
         property_list(UNKNOWN), node_label(label) {}
 
-  /**
+    /**
    * Copy assignment operator. This implementation is needed because of atomic
    * xid_t.
    */
@@ -111,7 +93,6 @@ public:
 
     return *this;
   }
-	
 
   /**
    * Returns the node identifier.
@@ -133,12 +114,12 @@ struct node_description {
   properties_t properties; // the list of properties
 
   /**
-   * Return a string representation of the node_description object.
+   * Return a string representation of the node_description object
    */
   std::string to_string() const;
 
   /**
-   * Return true if a property with the given name exists.
+   * Return true if a property with the given name exists
    */
   bool has_property(const std::string& pname) const;
 
@@ -146,42 +127,12 @@ struct node_description {
 };
 
 /**
- * Print a node description.
- */
-std::ostream &operator<<(std::ostream &os, const node_description &ndescr);
-
-/**
- * Helper function to print an any value.
- */
-std::ostream &operator<<(std::ostream &os, const std::any &any_value);
-
-/**
  * A class for storing all nodes of a graph. It supports adding and removing
  * nodes as well as getting a node via its node_id.
  */
-template <template <typename I> typename T>
-class node_list {
+template <template <typename I> typename T> class node_list {
 
-  /**
-   * A helper class for parallel inititialization of all nodes.
-   */
-  struct init_node_task {
-    using range = std::pair<std::size_t, std::size_t>;
-
-    init_node_task(T<node> &n, std::size_t first, std::size_t last) : nodes_(n), range_(first, last) {}
-
-    void operator()() {
-      auto iter = nodes_.range(range_.first, range_.second);
-      while (iter) {
-        auto &n = *iter;
-        n.runtime_initialize();
-        ++iter;
-      }
-    }
-
-    T<node> &nodes_;
-    range range_;
-  };
+  struct init_node_task {};
 
 public:
   using vec = T<node>;
@@ -190,8 +141,8 @@ public:
   /**
    * Constructor
    */
-  template <typename ... Args>
-  node_list(Args&& ... args) : nodes_(std::forward<Args>(args)...) {} 
+  template <typename... Args>
+  node_list(Args &&...args) : nodes_(std::forward<Args>(args)...) {}
 
   node_list(const node_list &) = delete;
 
@@ -199,36 +150,6 @@ public:
    * Destructor
    */
   ~node_list() = default;
-
-  /**
-   * Performs initialization steps after starting the database, i.e. setting the
-   * dirty_list to nullptr.
-   */
-  void runtime_initialize() {
-  // make sure that all locks are released and no dirty objects exist
-#ifdef PARALLEL_INIT
-  const int nchunks = 100;
-  std::vector<std::future<void>> res;
-  res.reserve(num_chunks() / nchunks + 1);
-  // spdlog::info("starting {} init node tasks...", num_chunks() / nchunks + 1);
-  thread_pool pool;
-  std::size_t start = 0, end = nchunks - 1;
-  while (start < num_chunks()) {
-    res.push_back(pool.submit(
-        init_node_task(*this, start, end)));
-    // spdlog::info("starting: {}, {}", start, end);
-    start = end + 1;
-    end += nchunks;
-  }
- // std::cout << "waiting ..." << std::endl;
-  for (auto &f : res)
-    f.get();
-#else
-  for (auto &n : nodes_) {
-    n.runtime_initialize();
-  }
-#endif   
-  }
 
   /**
    * Add a new node to the list and return its identifier. The node is inserted
@@ -251,25 +172,7 @@ public:
   return id;  
   }
 
-  /**
-   * Add a new node to the list and return its identifier. The node is inserted
-   * into the first available slot, i.e. to reuse space of deleted records.
-   * If owner != 0 then the newly created node is locked by this owner
-   * transaction. If a callback is given this function is called before the slot 
-   * is reserved (used for undo logging).
-   */
-  node::id_t insert(node &&n, xid_t owner = 0, std::function<void(offset_t)> callback = nullptr) {
-    auto p = nodes_.store(std::move(n), callback);
-  p.second->id_ = p.first;
-  if (owner != 0) {
-    // spdlog::info("lock node #{} by {}", p.first, owner);
-    p.second->lock(owner);
-  }
-
-  return p.first;  
-  }
-
-  /**
+    /**
    * Append a new node to the list and return its identifier. In contrast to add
    * the node is appended at the end of the list without checking for available
    * slots. If owner == 0 then the newly created node is locked by this owner
@@ -300,65 +203,10 @@ public:
   }
 
   /**
-   * Remove a certain node specified by its identifier.
-   */
-  void remove(node::id_t id) {
-    if (nodes_.capacity() <= id)
-    throw unknown_id();
-  nodes_.erase(id);  
-  }
-
-  /**
    * Returns the underlying vector of the node list.
    */
   auto &as_vec() { return nodes_; }
 
-  /**
-   * Return a range iterator to traverse the node_list from first_chunk to
-   * last_chunk.
-   */
-  range_iterator range(std::size_t first_chunk, std::size_t last_chunk, std::size_t start_pos = 0) {
-    return nodes_.range(first_chunk, last_chunk, start_pos);
-  }
-
-  range_iterator* range_ptr(std::size_t first_chunk, std::size_t last_chunk, std::size_t start_pos = 0) {
-    return nodes_.range_ptr(first_chunk, last_chunk, start_pos);
-  }
-  /**
-   * Output the content of the node vector.
-   */
-  void dump() {
-  std::cout << "----------- NODES -----------\n";
-  for (auto& n : nodes_) {
-    std::cout << std::dec << "#" << n.id() << ", @" << (unsigned long)&n
-              << " [ txn-id=" << short_ts(n.txn_id()) << ", bts=" << short_ts(n.bts())
-              << ", cts=" << short_ts(n.cts()) << ", dirty=" << (n.d_ != nullptr ? n.d_->is_dirty_ : false)
-              << " ], label=" << n.node_label << ", from="
-              << uint64_to_string(n.from_rship_list) << ", to=" << uint64_to_string(n.to_rship_list) << ", props="
-              << uint64_to_string(n.property_list);
-    if (n.has_dirty_versions()) {
-      // print dirty list
-      std::cout << " {\n";
-      for (const auto& dn : *(n.dirty_list())) {
-        std::cout << "\t( @" << (unsigned long)&(dn->elem_)
-                  << ", txn-id=" << short_ts(dn->elem_.txn_id())
-                  << ", bts=" << short_ts(dn->elem_.bts()) << ", cts=" << short_ts(dn->elem_.cts())
-                  << ", label=" << dn->elem_.node_label
-                  << ", dirty=" << dn->elem_.is_dirty()
-                  << ", from=" << uint64_to_string(dn->elem_.from_rship_list)
-                  << ", to=" << uint64_to_string(dn->elem_.to_rship_list)
-                  << ", [";
-        for (const auto& pi : dn->properties_) {
-          std::cout << " " << pi;
-        }
-        std::cout << " ])\n";
-      }
-      std::cout << "}";
-    }
-    std::cout << "\n";
-  }
-  std::cout << "-----------------------------\n";    
-  }
 
   /**
    * Returns the number of occupied chunks of the underlying chunked_vec.

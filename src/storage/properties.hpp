@@ -1,37 +1,19 @@
-/*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
- *
- * This file is part of the Poseidon package.
- *
- * Poseidon is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Poseidon is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef properties_hpp_
 #define properties_hpp_
 
+#include <any>
 #include <array>
 #include <map>
 #include <vector>
-#include <any>
 
 #include <boost/variant.hpp>
 
 #include "defs.hpp"
 
-#include "vec.hpp"
 #include "dict.hpp"
 #include "exceptions.hpp"
+#include "vec.hpp"
 
 #include "spdlog/spdlog.h"
 
@@ -73,13 +55,13 @@ struct p_item {
    */
   enum p_typecode {
     p_unused = 0b11100000, // unused
-    p_int =    0b00100000, // integer
+    p_int = 0b00100000,    // integer
     p_double = 0b01000000, // double
-    p_dcode =  0b01100000, // dictionary codes stored as integer values
+    p_dcode = 0b01100000,  // dictionary codes stored as integer values
     p_uint64 = 0b10000000, // unsigned 64-bit integer
-    p_ptime =  0b10100000, // datetime
-    p_date =   0b11100000, // date - used only during import not for
-                           // storing the value (use ptime instead) 
+    p_ptime = 0b10100000,  // datetime
+    p_date = 0b11100000,   // date - used only during import not for
+                           // storing the value (use ptime instead)
   };
 
   p_item() = default; // : key_(0), flags_(0) { P_SET_VAL(flags_, p_unused); }
@@ -95,7 +77,8 @@ struct p_item {
 
   p_item(const std::any &v, dict_ptr &dct);
   p_item(const std::string &k, const std::any &v, dict_ptr &dct);
-  p_item(dcode_t k, p_item::p_typecode tc, const std::string& v, dict_ptr &dict);
+  p_item(dcode_t k, p_item::p_typecode tc, const std::string &v,
+         dict_ptr &dict);
 
   p_item(dcode_t k, const std::any &v, dict_ptr &dct);
 
@@ -107,7 +90,7 @@ struct p_item {
   const char *key(dict_ptr &dct) { return dct->lookup_code(key_); }
 
   uint64_t get_raw() const;
-  
+
   template <typename T> T get() const;
   template <typename T> void set(T v);
 
@@ -124,54 +107,15 @@ struct p_item {
   bool empty() const { return P_UNUSED(flags_); }
 
   uint8_t value_[8]; // placeholder for storing int, double or dcode_t values
-  dcode_t key_;   // dictionary code for property name
+  dcode_t key_;      // dictionary code for property name
   uint8_t flags_; // Bit 0-2 used for representing the typecode (see p_typecode)
 };
-
-std::ostream& operator<< (std::ostream& os, const p_item& pi);
-
-/* ------------------------------------------------------------------------ */
-
-/**
- * Returns true if s is a quoted string ("" or '').
- */
-bool is_quoted_string(const std::string &s);
-
-/**
- * Returns true if s is a floating point number containing a decimal point.
- */
-bool is_float(const std::string &s);
-
-/**
- * Returns true if s is an integer number.
- */
-bool is_int(const std::string &s);
-
-/**
- * Returns true if s is a date with format YYYY-MM-DD
- */
-bool is_date(const std::string &s);
-
-/**
- * Returns true if s is a datetime with format YYYY-MM-DDTHH:MM:SS+ffff.
- */
-bool is_dtime(const std::string &s);
 
 /**
  * A typedef for a list of properties (key-value pairs) where values are
  * either numeric or full strings.
  */
 using properties_t = std::map<std::string, std::any>;
-
-template <typename T>
-std::optional<T> get_property(const properties_t &p, const std::string &key) {
-  auto it = p.find(key);
-  if (it == p.end()) {
-    // spdlog::warn("unknown property: {}", key);
-    return std::nullopt;
-  }
-  return std::optional<T> { std::any_cast<T>(it->second) };
-}
 
 /**
  * property_set represents a set of key-value pairs describing  attributes of a
@@ -180,7 +124,7 @@ std::optional<T> get_property(const properties_t &p, const std::string &key) {
  *
  */
 struct property_set {
-  using id_t = offset_t; // typedef for property identifier (used as offset in
+    using id_t = offset_t; // typedef for property identifier (used as offset in
                          // property list)
   using p_item_list = std::array<p_item, 3>;
 
@@ -363,47 +307,7 @@ public:
   return next_id;
   }
 
- 
-  /**
-   * Returns the value of the property of a node/relationship in the
-   * corresponding property list at offset id. If the property doesn't exist
-   * then an execption is raised.
-   */
-  p_item property_value(offset_t id, dcode_t pkey) {
- offset_t pset_id = id;
-  while (pset_id != UNKNOWN) {
-    auto &p = properties_.at(pset_id);
-    for (auto &item : p.items) {
-      if (item.key() == pkey)
-        return item;
-    }
-    pset_id = p.next;
-  }
-  return p_item();    
-  }
 
-  /**
-   * Scans all properties with the name represented by the encoded key and
-   * for all properties satisfying the predicate, the function f is invoked.
-   */
-  void foreach(dcode_t pkey, p_item::predicate_func pred,
-                    std::function<void(offset_t)> f) {
-  for (auto &p : properties_) {
-      for (auto &item : p.items) {
-        if (item.key() == pkey && pred(item))
-          f(p.owner);
-      }
-  }
-  }
-
-  void foreach_property(std::function<void(const p_item& pi)> f) {
-  for (const auto& ps : properties_) {
-    for (const auto& p : ps.items) {
-      if (!P_UNUSED(p.flags_))
-        f(p);
-    }
-  }    
-  }
 
   /**
    * Returns a list of all properties of a node/relationship where the list
@@ -449,25 +353,6 @@ public:
   return pmap;    
   }
 
-  /**
-   * Traverses the properties of a node/relationship where the list
-   * starts at the given id and calls the callback function for each entry.
-   * This method is used e.g. for undo logging.
-   */
-  void foreach_property_set(offset_t id, foreach_cb_func cb) {
-  // std::cout << "foreach_property_set..." << std::endl;
-  offset_t pset_id = id;
-  try {
-    while (pset_id != UNKNOWN) {
-      auto &p = properties_.at(pset_id);
-      if (cb != nullptr)
-        cb(pset_id, p.items, p.next);
-      pset_id = p.next;
-    }
-  } catch (unknown_id& exc) {
-    throw unknown_property();
-  }    
-  }
 
   /**
    * Updates the values of the given properties of a node where the list
@@ -619,96 +504,6 @@ public:
    */
   auto &as_vec() { return properties_; }
 
-  /**
-   * Build a list of p_items from the list of properties represented by props.
-   * This method is used to handle transactional inserts.
-   */
-  std::list<p_item> build_dirty_property_list(const properties_t &props,
-                                              dict_ptr &dct) {
-  std::list<p_item> p_item_list;
-  for (auto &kv : props) {
-    p_item_list.push_back(p_item(kv.first, kv.second, dct));
-  }
-  return p_item_list;
-  }
-
-  /**
-   * Build a list of p_items from the currently stored properties of the
-   * node/relationship identified by the id (n.property_list) where the list starts at offset id +
-   * the list of updated/added properties represented by props. This method is
-   * used to handle transactional updates.
-   */
-  std::list<p_item> build_dirty_property_list(offset_t id) {
-  std::list<p_item> p_item_list;
-  offset_t pset_id = id;
-  while (pset_id != UNKNOWN) {
-    auto &p = properties_.at(pset_id);
-    for (auto &item : p.items) {
-        // Optimization: Insert only valid keys to avoid holes in Property list and avoid resource leak.
-        if(item.key_ != 0)  
-          p_item_list.push_back(item);
-    }
-    pset_id = p.next;
-  }
-  return p_item_list;    
-  }
-
-  std::list<p_item> &apply_updates(std::list<p_item> &pitems,
-                                   const properties_t &props, dict_ptr &dct) {
-  // update p_item_list with properties
-  std::list<p_item> todo_list;
-  for (auto &kv : props) {
-    p_item pnew(kv.first, kv.second, dct);
-    bool updated = false;
-    for (auto &pi : pitems) {
-      if (pi.key() == pnew.key()) {
-        pi = pnew;
-        updated = true;
-        break;
-      }
-    }
-    if (!updated)
-      todo_list.push_back(pnew);
-  }
-  // append the elements from todo_list
-  pitems.splice(pitems.end(), todo_list);
-  return pitems;
-  }
-
-  /**
-   * Returns a list of the properties of a node/relationship from the list of
-   * p_items.
-   */
-  properties_t build_properties_from_pitems(const std::list<p_item> &pitems,
-                                            dict_ptr &dct) {
-  properties_t pmap;
-
-  for (auto &item : pitems) {
-    auto s = dct->lookup_code(item.key());
-    switch (item.typecode()) {
-    case p_item::p_int:
-      pmap.insert({s, item.get<int>()});
-      break;
-    case p_item::p_double:
-      pmap.insert({s, item.get<double>()});
-      break;
-    case p_item::p_uint64:
-      pmap.insert({s, item.get<uint64_t>()});
-      break;
-    case p_item::p_dcode: {
-      auto s2 = dct->lookup_code(item.get<dcode_t>());
-      pmap.insert({s, std::string(s2)});
-      break;
-    }
-    case p_item::p_ptime:
-      pmap.insert({s, item.get<boost::posix_time::ptime>()});
-      break;
-    case p_item::p_unused:
-      break;
-    }
-  }
-  return pmap;
-  }
 
   /**
    * Returns the number of occupied chunks of the underlying chunked_vec.
@@ -736,5 +531,4 @@ private:
   T<property_set> properties_; // the actual list of properties
   std::mutex m;
 };
-
 #endif

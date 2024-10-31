@@ -23,7 +23,7 @@
 #include "vec.hpp"
 #include "parser.hpp"
 #include "spdlog/spdlog.h"
-#include "thread_pool.hpp"
+//#include "thread_pool.hpp"
 #include <iostream>
 
 std::any string_to_any(p_item::p_typecode tc, const std::string& s, dict_ptr &dict) {
@@ -454,6 +454,8 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
                                             const std::string &filename,
                                             char delim, mapping_t &m) {
   using namespace aria::csv;
+
+  std::cout << "import_typed_n4j_nodes_from_csv" << std::endl;
 
   std::ifstream f(filename);
   if (!f.is_open()) {

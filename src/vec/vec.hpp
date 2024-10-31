@@ -19,6 +19,6 @@
 #ifndef vec_hpp_
 #define vec_hpp_
 
-# include "buffered_vec.hpp"
+#include "buffered_vec.hpp"
 
 #endif
