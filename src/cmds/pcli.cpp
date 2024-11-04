@@ -4,7 +4,13 @@
 
 #include "defs.hpp"
 #include "graph_db.hpp"
+
+#include "linenoise.hpp"
+#include "fmt/chrono.h"
+
 #include "graph_pool.hpp"
+#include "query_ctx.hpp"
+#include "query_proc.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -26,6 +32,7 @@ using namespace boost::program_options;
 
 graph_pool_ptr pool;
 graph_db_ptr graph;
+std::unique_ptr<query_proc> qproc_ptr;
 
 /**
  * Import data from the given list of CSV files. The list contains
@@ -118,6 +125,29 @@ bool import_csv_files(graph_db_ptr &gdb, std::string import_path, const std::vec
   return true;
 }
 
+/**
+ * Linenoise - autocompletion
+ */
+void query_completion(const char* buf, std::vector<std::string>& completions) {
+  if (buf[0] == 'n' || buf[0] == 'N') {
+    completions.push_back("NodeScan(");
+  } else if (buf[0] == 'l' || buf[0] == 'L') {
+    completions.push_back("Limit(");
+  } else if (buf[0] == 's' || buf[0] == 'S') {
+    completions.push_back("set");
+  }
+}
+
+void exec_query(const std::string &qstr, query_proc::mode qmode, bool print_plan) {
+
+}
+
+std::string read_from_file(const std::string& qfile) {
+  std::string qstr, line;
+
+
+  return qstr;
+}
 
 std::string check_config_files(const std::string &fname) {
   std::filesystem::path cwd_config_file(fname);
@@ -148,14 +178,35 @@ void show_help() {
             << "\tprint node|rship <id>            " << "print the raw data of the node/relationship with given id" << std::endl;
 }
 
+void run_shell(graph_db_ptr &gdb, query_proc::mode qmode) {
+  const auto path = "history.txt";
+  // Enable the multi-line mode
+  linenoise::SetMultiLine(true);
+
+  // Set max length of the history
+  linenoise::SetHistoryMaxLen(1000);
+
+  // Load history
+  linenoise::LoadHistory(path);
+
+  linenoise::SetCompletionCallback(query_completion);
+             
+
+  while (true) {
+    std::string line;
+
+  }
+}
+
 int main(int argc, char *argv[]) {
   spdlog::info("hello poseidon");
   std::string db_name, pool_path, query_file, import_path, dot_file, qmode_str, format = "ldbc";
   std::size_t bp_size = 0;
   std::vector<std::string> import_files;
   bool start_shell = false;
+  query_proc::mode qmode = query_proc::Interpret;
   char delim_character = ',';
-   bool strict = false;
+  bool strict = false;
   cmd_mode mode = undefined_mode;
 
   auto console = spdlog::stdout_color_mt("poseidon");
@@ -272,7 +323,22 @@ int main(int argc, char *argv[]) {
   if (!dot_file.empty()) {
     // nothing
   }
-  
+
+  query_ctx ctx(graph);
+  qproc_ptr = std::make_unique<query_proc>(ctx);
+
+  if (!query_file.empty()) {
+    mode = script_mode;
+    // load the query from the file
+    auto query_string = read_from_file(query_file);
+    exec_query(query_string, qmode, false);
+  }
+
+  if (start_shell || mode == undefined_mode) {
+    run_shell(graph, qmode);
+  }
+  graph->flush();
+  graph->close_files();
 
   return 0;
 }

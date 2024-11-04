@@ -65,3 +65,8 @@ void graph_db::flush() { bpool_.flush_all(); }
 void graph_db::print_stats() {
   
 }
+
+
+void graph_db::close_files() {
+  
+ }

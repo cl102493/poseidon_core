@@ -152,6 +152,8 @@ public:
    */
   void flush();
 
+  void close_files();
+
 private:
 
   void prepare_files(const std::string &pool_path, const std::string &prefix);
