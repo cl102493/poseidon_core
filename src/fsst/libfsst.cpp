@@ -468,31 +468,70 @@ extern "C" pool_fsst_encoder_t* rebuild_encoder(const pool_fsst_decoder_t* decod
 	new_encoder->symbolTable->nSymbols = (decoder->version >> 8) & 0xFF;
 	new_encoder->symbolTable->zeroTerminated = decoder->zeroTerminated;
 
-	// Reconstruct symbols and lenHisto
+	// Recons
+	for (u32 i = 0; i < 256; i++) {
+		new_encoder->symbolTable->byteCodes[i] = (1 << FSST_LEN_BITS) | i;  // 默认：每个字节都是转义字符
+	}
+	memset(new_encoder->symbolTable->shortCodes, 0xFF, sizeof(new_encoder->symbolTable->shortCodes));
     memset(new_encoder->symbolTable->lenHisto, 0, sizeof(new_encoder->symbolTable->lenHisto));
-	for (int i = 0; i < 256; i++) {
-        if (decoder->len[i] > 0 && decoder->len[i] <= 8) {
-            Symbol& s = new_encoder->symbolTable->symbols[i];
-            s.set_code_len(i, decoder->len[i]);
+
+	// rebuild the symboltable
+	for (u32 i = 0; i < new_encoder->symbolTable->nSymbols; i++ ) {
+		if (decoder->len[i] > 0 && decoder->len[i] <= 8) {
+			Symbol& s = new_encoder->symbolTable->symbols[FSST_CODE_BASE + i];
+            s.set_code_len(FSST_CODE_BASE + i, decoder->len[i]);
             s.val.num = decoder->symbol[i];
             new_encoder->symbolTable->lenHisto[decoder->len[i] - 1]++;
+		}
+	}
+
+	    // 重建查找表
+    for(u32 i = 0; i < new_encoder->symbolTable->nSymbols; i++) {
+        Symbol& s = new_encoder->symbolTable->symbols[FSST_CODE_BASE + i];
+        if(s.length() == 1) {
+            // 单字节符号
+            u8 byte = s.first();
+            new_encoder->symbolTable->byteCodes[byte] = (FSST_CODE_BASE + i) | (1 << FSST_LEN_BITS);
+        } else if(s.length() == 2) {
+            // 双字节符号
+            u16 bytes = s.first2();
+            new_encoder->symbolTable->shortCodes[bytes] = (FSST_CODE_BASE + i) | (2 << FSST_LEN_BITS);
+        } else if(s.length() > 2) {
+            // 多字节符号
+            u32 h = s.hash() & (new_encoder->symbolTable->hashTabSize - 1);
+            while(new_encoder->symbolTable->hashTab[h].icl != FSST_ICL_FREE) {
+                h = (h + 1) & (new_encoder->symbolTable->hashTabSize - 1);
+            }
+            new_encoder->symbolTable->hashTab[h] = s;
         }
     }
 
-    // Initialize hashTab, shortCodes, and byteCodes
-    for (u32 i = 0; i < 256; i++) {
-        Symbol& s = new_encoder->symbolTable->symbols[i];
-        if (s.length() > 0) {
-            if (s.length() == 1) {
-                new_encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
-            } else if (s.length() == 2) {
-                new_encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
-            } else {
-                u32 h = s.hash() & (new_encoder->symbolTable->hashTabSize - 1);
-                new_encoder->symbolTable->hashTab[h] = s;
-            }
-        }
-    }
+
+	// // Reconstruct symbols and lenHisto
+    // memset(new_encoder->symbolTable->lenHisto, 0, sizeof(new_encoder->symbolTable->lenHisto));
+	// for (int i = 0; i < 256; i++) {
+    //     if (decoder->len[i] > 0 && decoder->len[i] <= 8) {
+    //         Symbol& s = new_encoder->symbolTable->symbols[i];
+    //         s.set_code_len(i, decoder->len[i]);
+    //         s.val.num = decoder->symbol[i];
+    //         new_encoder->symbolTable->lenHisto[decoder->len[i] - 1]++;
+    //     }
+    // }
+
+    // // Initialize hashTab, shortCodes, and byteCodes
+    // for (u32 i = 0; i < 256; i++) {
+    //     Symbol& s = new_encoder->symbolTable->symbols[i];
+    //     if (s.length() > 0) {
+    //         if (s.length() == 1) {
+    //             new_encoder->symbolTable->byteCodes[s.first()] = i + (1 << FSST_LEN_BITS);
+    //         } else if (s.length() == 2) {
+    //             new_encoder->symbolTable->shortCodes[s.first2()] = i + (2 << FSST_LEN_BITS);
+    //         } else {
+    //             u32 h = s.hash() & (new_encoder->symbolTable->hashTabSize - 1);
+    //             new_encoder->symbolTable->hashTab[h] = s;
+    //         }
+    //     }
+    // }
 	return (pool_fsst_encoder_t*) new_encoder;
 }
 
