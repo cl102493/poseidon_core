@@ -655,7 +655,7 @@ node_description graph_db::get_node_description(node::id_t nid) {
     // the simple case: no concurrent transactions are active and
     // we can get the properties from the properties_ table
      // spdlog::info("get_node_description - not dirty");
-    props = node_properties_->all_properties(n.property_list, dict_);
+    props = node_properties_->all_properties(n.property_list, dict_);    // 扫描node的所有属性
     label = dict_->lookup_code(n.node_label);
   }
   else {

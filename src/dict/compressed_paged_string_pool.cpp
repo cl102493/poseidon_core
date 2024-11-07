@@ -25,7 +25,7 @@ void compressed_paged_string_pool::initialize_fsst() {
 
   fsst_encoder =
       pool_fsst_create(sample_strings.size(), sample_lengths.data(),
-                         sample_string_ptrs.data(), 1);
+                         sample_string_ptrs.data(), 0);
   fsst_decoder = pool_fsst_decoder(fsst_encoder);
   fsst_initialized.store(true);
 
@@ -71,13 +71,14 @@ compressed_paged_string_pool::compress_string(const std::string &input) const {
                        output.size(), output.data(), &compressed_length,
                        &compressed_ptr);
 
-  return std::string(output.data(), output.data() + compressed_length);
+  //return std::string(output.data(), output.data() + compressed_length);           // 这个接口需要改
+  return std::string(reinterpret_cast<char *>(output.data()),compressed_length);
 }
 
 std::string compressed_paged_string_pool::decompress_string(
     const std::string &compressed) const {
   std::vector<unsigned char> output(compressed.length() *
-                                    2 + 8); // Estimate decompressed size
+                                    4 + 7); // Estimate decompressed size
   size_t decompressed_length = pool_fsst_decompress(
       &fsst_decoder, compressed.length(),
       reinterpret_cast<unsigned char *>(const_cast<char *>(compressed.c_str())),

@@ -399,7 +399,7 @@ void run_shell(graph_db_ptr &gdb, query_proc::mode qmode) {
       exec_query(qstr, qmode, true);
     }
     else
-      exec_query(line, qmode, false);
+      exec_query(line, qmode, false); // NodeScan()
 
     // Add line to history
     linenoise::AddHistory(line.c_str());

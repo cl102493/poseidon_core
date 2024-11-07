@@ -419,25 +419,26 @@ public:
   while (pset_id != UNKNOWN) {
     auto &p = properties_.at(pset_id);
     for (auto &item : p.items) {
-      auto s = dct->lookup_code(item.key());
+      auto s = dct->lookup_code(item.key());   // 首先解码属性
+      std::string s_ = s;
       // spdlog::info("property: {} - {}", s, item.typecode());
       switch (item.typecode()) {
       case p_item::p_int:
-        pmap.insert({s, item.template get<int>()});
+        pmap.insert({s_, item.template get<int>()});
         break;
       case p_item::p_double:
-        pmap.insert({s, item.template get<double>()});
+        pmap.insert({s_, item.template get<double>()});
         break;
       case p_item::p_uint64:
-        pmap.insert({s, item.template get<uint64_t>()});
+        pmap.insert({s_, item.template get<uint64_t>()});
         break;
       case p_item::p_dcode: {
         auto s2 = dct->lookup_code(item.template get<dcode_t>());
-        pmap.insert({s, std::string(s2)});
+        pmap.insert({s_, std::string(s2)});
         break;
       }
       case p_item::p_ptime:
-        pmap.insert({s, item.template get<boost::posix_time::ptime>()});
+        pmap.insert({s_, item.template get<boost::posix_time::ptime>()});
         break;
       case p_item::p_unused:
         // spdlog::info("{} -> p_unused", s);
