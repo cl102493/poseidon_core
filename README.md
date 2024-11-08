@@ -44,6 +44,7 @@ In the following example, we create a new database and load the graph data from 
 
 ```bash
 ./build/pcli --pool demo --db testdb  -f n4j --delimiter , \
+     --import nodes:Actor:./test/c_name_100.csv \
      --import nodes:Movie:./test/movies.csv \
      --import nodes:Actor:./test/actors.csv \
      --import relationships:./test/roles.csv 
@@ -202,4 +203,12 @@ The architecture of the persistent memory-based version is described **[here](ht
 * [temporal graph processing](https://doi.org/10.1007/978-3-031-42914-9_8).
 
 
-./build/pcli --pool demo --db testdb  -f n4j --delimiter , --import nodes:Actor:/Users/lei/Desktop/poseidon/poseidon_core/test/c_name.csv
+
+ ./build/pcli --pool demo --db testdb  -f n4j --delimiter , \
+     --import nodes:Actor:./test/c_name_100.csv \
+     --import nodes:Movie:./test/movies.csv \
+     --import nodes:Actor:./test/actors.csv \
+     --import relationships:./test/roles.csv
+
+
+ 
